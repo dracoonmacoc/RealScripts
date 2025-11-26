@@ -9,7 +9,7 @@ ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0.4, 0, 0.4, 0)  -- initial size, will scale
+MainFrame.Size = UDim2.new(0.4, 0, 0.4, 0)
 MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -64,39 +64,65 @@ local function removeHighlight(part)
     end
 end
 
-local function checkPart(part)
-    if not part:IsA("BasePart") then return end
-    local lowerName = part.Name:lower()
-    if lowerName == "paper" and categories.Paper then
-        highlightPart(part, Color3.fromRGB(255,255,0))
-    elseif lowerName == "meteor" and categories.Meteor then
-        highlightPart(part, Color3.fromRGB(255,0,0))
-    elseif highlights[part] then
-        removeHighlight(part)
+-- Highlight a model by looping all BaseParts inside
+local function highlightModel(model, color)
+    if not model or not model:IsA("Model") then return end
+    for _, part in pairs(model:GetDescendants()) do
+        if part:IsA("BasePart") then
+            highlightPart(part, color)
+        end
+    end
+end
+
+local function removeModelHighlight(model)
+    if not model or not model:IsA("Model") then return end
+    for _, part in pairs(model:GetDescendants()) do
+        if part:IsA("BasePart") then
+            removeHighlight(part)
+        end
+    end
+end
+
+-- Check part or model for highlighting
+local function checkObject(obj)
+    if obj:IsA("BasePart") then
+        local lowerName = obj.Name:lower()
+        if lowerName == "paper" and categories.Paper then
+            highlightPart(obj, Color3.fromRGB(255,255,0))
+        elseif highlights[obj] then
+            removeHighlight(obj)
+        end
+    elseif obj:IsA("Model") then
+        if obj.Name:lower() == "meteor" then
+            if categories.Meteor then
+                highlightModel(obj, Color3.fromRGB(255,0,0))
+            else
+                removeModelHighlight(obj)
+            end
+        end
     end
 end
 
 local function updateHighlights()
-    for _, part in pairs(workspace:GetDescendants()) do
-        checkPart(part)
+    for _, obj in pairs(workspace:GetDescendants()) do
+        checkObject(obj)
     end
 end
 
--- Recursive descendant listener for any new parts
+-- Recursive listener for new objects
 local function listenDescendants(parent)
-    parent.DescendantAdded:Connect(function(part)
-        checkPart(part)
+    parent.DescendantAdded:Connect(function(obj)
+        checkObject(obj)
     end)
 end
 
--- Listen to all current children of workspace
+-- Listen to existing workspace
 for _, obj in pairs(workspace:GetDescendants()) do
     listenDescendants(obj)
 end
 
--- Also listen to workspace itself for new models
 workspace.DescendantAdded:Connect(function(obj)
-    checkPart(obj)
+    checkObject(obj)
     listenDescendants(obj)
 end)
 
@@ -134,7 +160,7 @@ ToggleFrame.InputBegan:Connect(function(input)
     end
 end)
 
---// Keep MainFrame square dynamically on screen resize
+-- Keep MainFrame square dynamically
 RunService.RenderStepped:Connect(function()
     local screenSize = workspace.CurrentCamera.ViewportSize
     local scale = math.min(screenSize.X*0.4, screenSize.Y*0.4)
