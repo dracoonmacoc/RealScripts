@@ -1,15 +1,16 @@
 --// SERVICES
 local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
---// MAIN GUI (square)
+--// MAIN GUI (dynamic square)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "HighlightMainGUI"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 300)  -- square
-MainFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
+MainFrame.Size = UDim2.new(0.4, 0, 0.4, 0)  -- 40% of screen width/height (square)
+MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -17,8 +18,8 @@ MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -20, 0, 40)
-Title.Position = UDim2.new(0, 10, 0, 10)
+Title.Size = UDim2.new(0.9, 0, 0.15, 0)
+Title.Position = UDim2.new(0.05, 0, 0.05, 0)
 Title.Text = "Highlight ESP"
 Title.TextScaled = true
 Title.BackgroundTransparency = 1
@@ -26,10 +27,10 @@ Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Parent = MainFrame
 
 -- Buttons for highlights
-local function createButton(name, yPos)
+local function createButton(name, yScale)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.8, 0, 0.15, 0)
-    btn.Position = UDim2.new(0.1, 0, 0.2 + (yPos-1)*0.2, 0)
+    btn.Position = UDim2.new(0.1, 0, yScale, 0)
     btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
     btn.Text = name .. ": ON"
     btn.TextScaled = true
@@ -40,8 +41,8 @@ end
 
 local categories = {Paper=true, Meteor=true}
 local buttons = {}
-buttons.Paper = createButton("Paper",1)
-buttons.Meteor = createButton("Meteor",2)
+buttons.Paper = createButton("Paper",0.3)
+buttons.Meteor = createButton("Meteor",0.55)
 
 --// HIGHLIGHT LOGIC
 local highlights = {}
@@ -66,7 +67,6 @@ end
 local function updateHighlights()
     for _, part in pairs(workspace:GetDescendants()) do
         if part:IsA("BasePart") then
-            -- Paper (case-insensitive)
             if part.Name:lower() == "paper" then
                 if categories.Paper then
                     highlightPart(part, Color3.fromRGB(255,255,0))
@@ -74,8 +74,7 @@ local function updateHighlights()
                     removeHighlight(part)
                 end
             end
-            -- Meteor (case-sensitive)
-            if part.Name == "Meteor" then
+            if part.Name:lower() == "meteor" then
                 if categories.Meteor then
                     highlightPart(part, Color3.fromRGB(255,0,0))
                 else
@@ -86,13 +85,12 @@ local function updateHighlights()
     end
 end
 
--- Auto-highlight new parts
 workspace.DescendantAdded:Connect(function(part)
     if part:IsA("BasePart") then
         if part.Name:lower() == "paper" and categories.Paper then
             highlightPart(part, Color3.fromRGB(255,255,0))
         end
-        if part.Name == "Meteor" and categories.Meteor then
+        if part.Name:lower() == "meteor" and categories.Meteor then
             highlightPart(part, Color3.fromRGB(255,0,0))
         end
     end
@@ -109,14 +107,14 @@ for cat, btn in pairs(buttons) do
     end)
 end
 
---// TOGGLE BUTTON GUI (small, draggable frame)
+--// GUI OPENER BUTTON (small, draggable)
 local ToggleGUI = Instance.new("ScreenGui")
 ToggleGUI.Name = "HighlightToggleGUI"
 ToggleGUI.Parent = game.CoreGui
 ToggleGUI.ResetOnSpawn = false
 
 local ToggleFrame = Instance.new("Frame")
-ToggleFrame.Size = UDim2.new(0, 30, 0, 30)  -- smaller, easier to drag
+ToggleFrame.Size = UDim2.new(0, 30, 0, 30)
 ToggleFrame.Position = UDim2.new(0.01, 0, 0.9, 0)
 ToggleFrame.Active = true
 ToggleFrame.Draggable = true
@@ -124,10 +122,16 @@ ToggleFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
 ToggleFrame.Parent = ToggleGUI
 Instance.new("UICorner", ToggleFrame)
 
--- Detect clicks on frame itself
+-- click detection
 ToggleFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or
-       input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         MainFrame.Visible = not MainFrame.Visible
     end
+end)
+
+--// OPTIONAL: Keep MainFrame square dynamically on screen resize
+RunService.RenderStepped:Connect(function()
+    local screenSize = workspace.CurrentCamera.ViewportSize
+    local scale = math.min(screenSize.X*0.4, screenSize.Y*0.4)
+    MainFrame.Size = UDim2.new(0, scale, 0, scale)
 end)
