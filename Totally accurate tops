@@ -1,0 +1,98 @@
+--// GUI SETUP
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local ToggleButton = Instance.new("TextButton")
+
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ResetOnSpawn = false
+
+Frame.Parent = ScreenGui
+Frame.Size = UDim2.new(0, 180, 0, 80)
+Frame.Position = UDim2.new(0.1, 0, 0.2, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Frame.Active = true
+Frame.Draggable = true
+
+Title.Parent = Frame
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.BackgroundTransparency = 1
+Title.Text = "Meteor ESP"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextScaled = true
+
+ToggleButton.Parent = Frame
+ToggleButton.Size = UDim2.new(1, -20, 0, 40)
+ToggleButton.Position = UDim2.new(0, 10, 0, 30)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextScaled = true
+
+
+--// ESP FUNCTIONS
+local folder = workspace:FindFirstChild("Meteors")
+local ESP_Enabled = false
+
+local function applyHighlight(obj)
+    if obj:FindFirstChild("ESP_HIGHLIGHT") then return end
+    local h = Instance.new("Highlight")
+    h.Name = "ESP_HIGHLIGHT"
+    h.FillColor = Color3.fromRGB(255, 0, 0)
+    h.OutlineColor = Color3.fromRGB(255, 255, 255)
+    h.Parent = obj
+end
+
+local function removeHighlight(obj)
+    local h = obj:FindFirstChild("ESP_HIGHLIGHT")
+    if h then h:Destroy() end
+end
+
+local function enableESP()
+    if not folder then return end
+    for _, v in pairs(folder:GetChildren()) do
+        applyHighlight(v)
+    end
+end
+
+local function disableESP()
+    if not folder then return end
+    for _, v in pairs(folder:GetChildren()) do
+        removeHighlight(v)
+    end
+end
+
+-- Keep ESP synced with new meteors
+if folder then
+    folder.ChildAdded:Connect(function(c)
+        if ESP_Enabled then
+            applyHighlight(c)
+        end
+    end)
+end
+
+
+--// BUTTON FIX — ALWAYS UPDATES CORRECTLY
+local function updateButton()
+    if ESP_Enabled then
+        ToggleButton.Text = "ESP: ON"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+    else
+        ToggleButton.Text = "ESP: OFF"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+    end
+end
+
+updateButton() -- set initial state
+
+
+ToggleButton.MouseButton1Click:Connect(function()
+    ESP_Enabled = not ESP_Enabled  -- IMPORTANT FIX
+
+    if ESP_Enabled then
+        enableESP()
+    else
+        disableESP()
+    end
+
+    updateButton() -- refresh UI
+end)
