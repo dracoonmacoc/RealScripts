@@ -9,7 +9,7 @@ ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0.4, 0, 0.4, 0)  -- 40% of screen width/height (square)
+MainFrame.Size = UDim2.new(0.4, 0, 0.4, 0)  -- initial size, will scale
 MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -64,38 +64,43 @@ local function removeHighlight(part)
     end
 end
 
-local function updateHighlights()
-    for _, part in pairs(workspace:GetDescendants()) do
-        if part:IsA("BasePart") then
-            if part.Name:lower() == "paper" then
-                if categories.Paper then
-                    highlightPart(part, Color3.fromRGB(255,255,0))
-                else
-                    removeHighlight(part)
-                end
-            end
-            if part.Name:lower() == "meteor" then
-                if categories.Meteor then
-                    highlightPart(part, Color3.fromRGB(255,0,0))
-                else
-                    removeHighlight(part)
-                end
-            end
-        end
+local function checkPart(part)
+    if not part:IsA("BasePart") then return end
+    local lowerName = part.Name:lower()
+    if lowerName == "paper" and categories.Paper then
+        highlightPart(part, Color3.fromRGB(255,255,0))
+    elseif lowerName == "meteor" and categories.Meteor then
+        highlightPart(part, Color3.fromRGB(255,0,0))
+    elseif highlights[part] then
+        removeHighlight(part)
     end
 end
 
-workspace.DescendantAdded:Connect(function(part)
-    if part:IsA("BasePart") then
-        if part.Name:lower() == "paper" and categories.Paper then
-            highlightPart(part, Color3.fromRGB(255,255,0))
-        end
-        if part.Name:lower() == "meteor" and categories.Meteor then
-            highlightPart(part, Color3.fromRGB(255,0,0))
-        end
+local function updateHighlights()
+    for _, part in pairs(workspace:GetDescendants()) do
+        checkPart(part)
     end
+end
+
+-- Recursive descendant listener for any new parts
+local function listenDescendants(parent)
+    parent.DescendantAdded:Connect(function(part)
+        checkPart(part)
+    end)
+end
+
+-- Listen to all current children of workspace
+for _, obj in pairs(workspace:GetDescendants()) do
+    listenDescendants(obj)
+end
+
+-- Also listen to workspace itself for new models
+workspace.DescendantAdded:Connect(function(obj)
+    checkPart(obj)
+    listenDescendants(obj)
 end)
 
+-- Initial highlight
 task.spawn(updateHighlights)
 
 --// BUTTON CONNECTIONS
@@ -122,14 +127,14 @@ ToggleFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
 ToggleFrame.Parent = ToggleGUI
 Instance.new("UICorner", ToggleFrame)
 
--- click detection
 ToggleFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or
+       input.UserInputType == Enum.UserInputType.Touch then
         MainFrame.Visible = not MainFrame.Visible
     end
 end)
 
---// OPTIONAL: Keep MainFrame square dynamically on screen resize
+--// Keep MainFrame square dynamically on screen resize
 RunService.RenderStepped:Connect(function()
     local screenSize = workspace.CurrentCamera.ViewportSize
     local scale = math.min(screenSize.X*0.4, screenSize.Y*0.4)
