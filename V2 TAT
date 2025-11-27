@@ -1,0 +1,326 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+--// KEY SYSTEM
+local correctKey = "92635824"
+local userInput = nil
+
+-- Prompt the user for key using Roblox InputPrompt
+local promptCompleted = false
+StarterGui:SetCore("SendNotification", {
+    Title = "ESP Key",
+    Text = "Please enter the key: 8 digits",
+    Duration = 5
+})
+
+-- Using a simple InputBox GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Size = UDim2.new(0, 300, 0, 150)
+KeyFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+KeyFrame.Parent = ScreenGui
+KeyFrame.Active = true
+KeyFrame.Draggable = true
+
+local KeyLabel = Instance.new("TextLabel")
+KeyLabel.Size = UDim2.new(1, -20, 0, 50)
+KeyLabel.Position = UDim2.new(0, 10, 0, 10)
+KeyLabel.Text = "Enter Key:"
+KeyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyLabel.BackgroundTransparency = 1
+KeyLabel.TextScaled = true
+KeyLabel.Parent = KeyFrame
+
+local KeyBox = Instance.new("TextBox")
+KeyBox.Size = UDim2.new(1, -20, 0, 40)
+KeyBox.Position = UDim2.new(0, 10, 0, 60)
+KeyBox.ClearTextOnFocus = false
+KeyBox.Text = ""
+KeyBox.TextScaled = true
+KeyBox.Parent = KeyFrame
+
+local KeyButton = Instance.new("TextButton")
+KeyButton.Size = UDim2.new(0.5, -10, 0, 30)
+KeyButton.Position = UDim2.new(0, 10, 0, 110)
+KeyButton.Text = "Submit"
+KeyButton.Parent = KeyFrame
+
+-- Wait for key submission
+local keyCorrect = false
+KeyButton.MouseButton1Click:Connect(function()
+    if KeyBox.Text == correctKey then
+        keyCorrect = true
+        KeyFrame:Destroy() -- remove key input GUI
+    else
+        StarterGui:SetCore("SendNotification", {
+            Title = "ESP Key",
+            Text = "Incorrect key! Try again.",
+            Duration = 3
+        })
+        KeyBox.Text = ""
+    end
+end)
+
+-- Wait until key is correct
+repeat wait() until keyCorrect
+
+--// VARIABLES
+local paperESPEnabled = true
+local meteorESPEnabled = true
+local espObjects = {}
+local tweenSpeed = 90 -- teleport speed
+
+--// FUNCTIONS
+
+-- Create ESP for target
+local function createESP(target)
+    if espObjects[target] then return end
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = target
+
+    if target:IsA("BasePart") and target.Name == "Paper" then
+        highlight.FillColor = Color3.fromRGB(0, 255, 0)
+    elseif target:IsA("Model") and target.Name == "Meteor" then
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+    end
+
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.OutlineTransparency = 0
+    highlight.Parent = CoreGui
+
+    espObjects[target] = highlight
+end
+
+-- Remove ESP
+local function removeESP(target)
+    if espObjects[target] then
+        espObjects[target]:Destroy()
+        espObjects[target] = nil
+    end
+end
+
+-- Check descendant for ESP
+local function checkDescendant(desc)
+    if desc:IsA("BasePart") and desc.Name == "Paper" and paperESPEnabled then
+        createESP(desc)
+    elseif desc:IsA("Model") and desc.Name == "Meteor" and meteorESPEnabled then
+        createESP(desc)
+    end
+end
+
+-- Cleanup destroyed objects
+local function cleanup()
+    for obj, _ in pairs(espObjects) do
+        if not obj:IsDescendantOf(game) then
+            removeESP(obj)
+        end
+    end
+end
+
+-- Watch Workspace
+local function watchWorkspace()
+    for _, desc in ipairs(Workspace:GetDescendants()) do
+        checkDescendant(desc)
+    end
+
+    Workspace.DescendantAdded:Connect(function(desc)
+        checkDescendant(desc)
+    end)
+end
+
+-- Toggle ESP functions
+local function togglePaperESP()
+    paperESPEnabled = not paperESPEnabled
+    for obj, _ in pairs(espObjects) do
+        if obj:IsA("BasePart") and obj.Name == "Paper" then
+            removeESP(obj)
+        end
+    end
+    if paperESPEnabled then
+        for _, desc in ipairs(Workspace:GetDescendants()) do
+            checkDescendant(desc)
+        end
+    end
+end
+
+local function toggleMeteorESP()
+    meteorESPEnabled = not meteorESPEnabled
+    for obj, _ in pairs(espObjects) do
+        if obj:IsA("Model") and obj.Name == "Meteor" then
+            removeESP(obj)
+        end
+    end
+    if meteorESPEnabled then
+        for _, desc in ipairs(Workspace:GetDescendants()) do
+            checkDescendant(desc)
+        end
+    end
+end
+
+-- Safe teleport function using TweenService
+local function safeTeleport(targetCFrame)
+    if not targetCFrame then return end
+    local distance = (HumanoidRootPart.Position - targetCFrame.Position).Magnitude
+    local tweenInfo = TweenInfo.new(distance / tweenSpeed, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(HumanoidRootPart, tweenInfo, {CFrame = targetCFrame})
+
+    tween:Play()
+end
+
+-- Teleport to nearest Paper (only visible/collectable)
+local function teleportToPaper()
+    local nearest
+    local shortest = math.huge
+    for _, part in ipairs(Workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name == "Paper" 
+           and part.Transparency < 1 and part.CanCollide then
+            local distance = (HumanoidRootPart.Position - part.Position).Magnitude
+            if distance < shortest then
+                nearest = part
+                shortest = distance
+            end
+        end
+    end
+
+    if nearest then
+        safeTeleport(nearest.CFrame + Vector3.new(0,3,0))
+    end
+end
+
+-- Teleport to nearest Meteor (Model) using Model position
+local function teleportToMeteor()
+    local nearestModel
+    local shortest = math.huge
+
+    for _, model in ipairs(Workspace:GetDescendants()) do
+        if model:IsA("Model") and model.Name == "Meteor" and model:IsDescendantOf(Workspace) then
+            local modelCFrame
+            if model.PrimaryPart then
+                modelCFrame = model:GetPrimaryPartCFrame()
+            else
+                local parts = {}
+                for _, p in ipairs(model:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        table.insert(parts, p.Position)
+                    end
+                end
+                if #parts == 0 then continue end
+                local sum = Vector3.new(0,0,0)
+                for _, pos in ipairs(parts) do
+                    sum = sum + pos
+                end
+                modelCFrame = CFrame.new(sum / #parts)
+            end
+
+            local distance = (HumanoidRootPart.Position - modelCFrame.Position).Magnitude
+            if distance < shortest then
+                nearestModel = model
+                shortest = distance
+            end
+        end
+    end
+
+    if nearestModel then
+        local targetCFrame
+        if nearestModel.PrimaryPart then
+            targetCFrame = nearestModel:GetPrimaryPartCFrame() + Vector3.new(0,3,0)
+        else
+            local parts = {}
+            for _, p in ipairs(nearestModel:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    table.insert(parts, p.Position)
+                end
+            end
+            local sum = Vector3.new(0,0,0)
+            for _, pos in ipairs(parts) do
+                sum = sum + pos
+            end
+            targetCFrame = CFrame.new(sum / #parts + Vector3.new(0,3,0))
+        end
+
+        safeTeleport(targetCFrame)
+    end
+end
+
+--// GUI CREATION (same as before)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 170)
+MainFrame.Position = UDim2.new(0.5, -100, 0.5, -85)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.BackgroundTransparency = 1
+Title.Text = "ESP GUI"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Parent = MainFrame
+
+local PaperButton = Instance.new("TextButton")
+PaperButton.Size = UDim2.new(1, -10, 0, 30)
+PaperButton.Position = UDim2.new(0, 5, 0, 35)
+PaperButton.Text = "Toggle Paper ESP"
+PaperButton.Parent = MainFrame
+PaperButton.MouseButton1Click:Connect(togglePaperESP)
+
+local MeteorButton = Instance.new("TextButton")
+MeteorButton.Size = UDim2.new(1, -10, 0, 30)
+MeteorButton.Position = UDim2.new(0, 5, 0, 70)
+MeteorButton.Text = "Toggle Meteor ESP"
+MeteorButton.Parent = MainFrame
+MeteorButton.MouseButton1Click:Connect(toggleMeteorESP)
+
+local TPPaperButton = Instance.new("TextButton")
+TPPaperButton.Size = UDim2.new(1, -10, 0, 30)
+TPPaperButton.Position = UDim2.new(0, 5, 0, 105)
+TPPaperButton.Text = "TP to Paper"
+TPPaperButton.Parent = MainFrame
+TPPaperButton.MouseButton1Click:Connect(teleportToPaper)
+
+local TPMeteorButton = Instance.new("TextButton")
+TPMeteorButton.Size = UDim2.new(1, -10, 0, 30)
+TPMeteorButton.Position = UDim2.new(0, 5, 0, 140)
+TPMeteorButton.Text = "TP to Meteor"
+TPMeteorButton.Parent = MainFrame
+TPMeteorButton.MouseButton1Click:Connect(teleportToMeteor)
+
+local GUIButton = Instance.new("TextButton")
+GUIButton.Size = UDim2.new(0, 40, 0, 40)
+GUIButton.Position = UDim2.new(0, 10, 0, 10)
+GUIButton.Text = "GUI"
+GUIButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+GUIButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+GUIButton.Parent = ScreenGui
+GUIButton.Active = true
+GUIButton.Draggable = true
+
+GUIButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+local function scaleGUI()
+    local scale = math.clamp(math.min(workspace.CurrentCamera.ViewportSize.X / 1920, workspace.CurrentCamera.ViewportSize.Y / 1080), 0.5, 1.5)
+    MainFrame.Size = UDim2.new(0, 200 * scale, 0, 170 * scale)
+end
+
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(scaleGUI)
+scaleGUI()
+
+RunService.RenderStepped:Connect(cleanup)
+watchWorkspace()
