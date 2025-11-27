@@ -12,24 +12,15 @@ local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 
 --// KEY SYSTEM
 local correctKey = "92635824"
-local userInput = nil
 
--- Prompt the user for key using Roblox InputPrompt
-local promptCompleted = false
-StarterGui:SetCore("SendNotification", {
-    Title = "ESP Key",
-    Text = "Please enter the key: 8 digits",
-    Duration = 5
-})
-
--- Using a simple InputBox GUI
+--// GUI FOR KEY ENTRY
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
 local KeyFrame = Instance.new("Frame")
-KeyFrame.Size = UDim2.new(0, 300, 0, 150)
-KeyFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
+KeyFrame.Size = UDim2.new(0, 300, 0, 180)
+KeyFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
 KeyFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 KeyFrame.Parent = ScreenGui
 KeyFrame.Active = true
@@ -53,17 +44,41 @@ KeyBox.TextScaled = true
 KeyBox.Parent = KeyFrame
 
 local KeyButton = Instance.new("TextButton")
-KeyButton.Size = UDim2.new(0.5, -10, 0, 30)
+KeyButton.Size = UDim2.new(0.45, -10, 0, 30)
 KeyButton.Position = UDim2.new(0, 10, 0, 110)
-KeyButton.Text = "Submit"
+KeyButton.Text = "Submit Key"
 KeyButton.Parent = KeyFrame
 
--- Wait for key submission
+local GetKeyButton = Instance.new("TextButton")
+GetKeyButton.Size = UDim2.new(0.45, -10, 0, 30)
+GetKeyButton.Position = UDim2.new(0.5, 0, 0, 110)
+GetKeyButton.Text = "Get Key"
+GetKeyButton.Parent = KeyFrame
+
+-- Copy key link to clipboard
+GetKeyButton.MouseButton1Click:Connect(function()
+    local keyLink = "https://link-hub.net/1104136/7ybtWpbDc6V1"
+    if pcall(function() setclipboard(keyLink) end) then
+        StarterGui:SetCore("SendNotification", {
+            Title = "Key Link",
+            Text = "Key link copied to clipboard!",
+            Duration = 4
+        })
+    else
+        StarterGui:SetCore("SendNotification", {
+            Title = "Key Link",
+            Text = "Copy manually: "..keyLink,
+            Duration = 6
+        })
+    end
+end)
+
+-- Wait for correct key
 local keyCorrect = false
 KeyButton.MouseButton1Click:Connect(function()
     if KeyBox.Text == correctKey then
         keyCorrect = true
-        KeyFrame:Destroy() -- remove key input GUI
+        KeyFrame:Destroy()
     else
         StarterGui:SetCore("SendNotification", {
             Title = "ESP Key",
@@ -74,7 +89,6 @@ KeyButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Wait until key is correct
 repeat wait() until keyCorrect
 
 --// VARIABLES
@@ -171,17 +185,16 @@ local function toggleMeteorESP()
     end
 end
 
--- Safe teleport function using TweenService
+-- Safe teleport function
 local function safeTeleport(targetCFrame)
     if not targetCFrame then return end
     local distance = (HumanoidRootPart.Position - targetCFrame.Position).Magnitude
     local tweenInfo = TweenInfo.new(distance / tweenSpeed, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(HumanoidRootPart, tweenInfo, {CFrame = targetCFrame})
-
     tween:Play()
 end
 
--- Teleport to nearest Paper (only visible/collectable)
+-- Teleport to Paper
 local function teleportToPaper()
     local nearest
     local shortest = math.huge
@@ -201,7 +214,7 @@ local function teleportToPaper()
     end
 end
 
--- Teleport to nearest Meteor (Model) using Model position
+-- Teleport to Meteor
 local function teleportToMeteor()
     local nearestModel
     local shortest = math.huge
@@ -256,7 +269,7 @@ local function teleportToMeteor()
     end
 end
 
---// GUI CREATION (same as before)
+--// GUI CREATION
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 200, 0, 170)
 MainFrame.Position = UDim2.new(0.5, -100, 0.5, -85)
