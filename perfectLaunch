@@ -1,0 +1,15 @@
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local bar = playerGui:WaitForChild("HUD"):WaitForChild("Launch"):WaitForChild("Bar")
+local RunService = game:GetService("RunService")
+
+-- Find Tracker and Goal frames
+local tracker = bar:WaitForChild("Tracker")
+local goal = bar:WaitForChild("Goal")
+
+-- Keep Goal synced with Tracker
+RunService.RenderStepped:Connect(function()
+    if tracker and goal then
+        goal.Position = tracker.Position
+    end
+end)
