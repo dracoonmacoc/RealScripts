@@ -1,15 +1,56 @@
-local player = game.Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local bar = playerGui:WaitForChild("HUD"):WaitForChild("Launch"):WaitForChild("Bar")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
--- Find Tracker and Goal frames
-local tracker = bar:WaitForChild("Tracker")
-local goal = bar:WaitForChild("Goal")
+local LocalPlayer = Players.LocalPlayer
+local Teams = game:WaitForChild("Teams")
+local wantedTeam = Teams:WaitForChild("Tournament")
 
--- Keep Goal synced with Tracker
-RunService.RenderStepped:Connect(function()
-    if tracker and goal then
-        goal.Position = tracker.Position
+-- Replace this function with your perfectLaunch code
+local function runPerfectLaunch()
+    local url = "https://raw.githubusercontent.com/dracoonmacoc/RealScripts/refs/heads/main/perfectLaunch"
+    local code = game:HttpGet(url)
+    loadstring(code)()
+end
+
+-- Execute immediately when script first runs
+runPerfectLaunch()
+
+-- Loop control
+local loopRunning = false
+local loopConnection = nil
+
+-- Start loop (only while in Tournament)
+local function startLoop()
+    if loopRunning then return end
+    loopRunning = true
+    loopConnection = RunService.RenderStepped:Connect(function()
+        runPerfectLaunch()
+        task.wait(5)
+    end)
+end
+
+-- Stop loop and run once more when leaving Tournament
+local function stopLoop()
+    if not loopRunning then return end
+    loopRunning = false
+    if loopConnection then
+        loopConnection:Disconnect()
+        loopConnection = nil
+    end
+    -- Execute once when leaving Tournament
+    runPerfectLaunch()
+end
+
+-- Detect team changes
+LocalPlayer:GetPropertyChangedSignal("Team"):Connect(function()
+    if LocalPlayer.Team == wantedTeam then
+        startLoop()
+    else
+        stopLoop()
     end
 end)
+
+-- If player is already in Tournament when script starts
+if LocalPlayer.Team == wantedTeam then
+    startLoop()
+end
