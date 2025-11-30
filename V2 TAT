@@ -95,7 +95,7 @@ repeat wait() until keyCorrect
 local paperESPEnabled = true
 local meteorESPEnabled = true
 local espObjects = {}
-local tweenSpeed = 90 -- teleport speed
+local tweenSpeed = 50 -- teleport speed
 
 --// FUNCTIONS
 
@@ -136,8 +136,8 @@ local function checkDescendant(desc)
         -- Notification when Meteor spawns
         StarterGui:SetCore("SendNotification", {
             Title = "Meteor Detected!",
-            Text = "A Meteor has spawned in Workspace!",
-            Duration = 5
+            Text = "A Meteor has spawned!",
+            Duration = 10
         })
     end
 end
