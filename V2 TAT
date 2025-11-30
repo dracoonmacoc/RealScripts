@@ -133,6 +133,12 @@ local function checkDescendant(desc)
         createESP(desc)
     elseif desc:IsA("Model") and desc.Name == "Meteor" and meteorESPEnabled then
         createESP(desc)
+        -- Notification when Meteor spawns
+        StarterGui:SetCore("SendNotification", {
+            Title = "Meteor Detected!",
+            Text = "A Meteor has spawned in Workspace!",
+            Duration = 5
+        })
     end
 end
 
@@ -199,7 +205,7 @@ local function teleportToPaper()
     local nearest
     local shortest = math.huge
     for _, part in ipairs(Workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name == "Paper" 
+        if part:IsA("BasePart") and part.Name == "Paper"
            and part.Transparency < 1 and part.CanCollide then
             local distance = (HumanoidRootPart.Position - part.Position).Magnitude
             if distance < shortest then
