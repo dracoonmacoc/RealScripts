@@ -10,87 +10,6 @@ local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 
---// KEY SYSTEM
-local correctKey = "92635824"
-
---// GUI FOR KEY ENTRY
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
-
-local KeyFrame = Instance.new("Frame")
-KeyFrame.Size = UDim2.new(0, 300, 0, 180)
-KeyFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
-KeyFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-KeyFrame.Parent = ScreenGui
-KeyFrame.Active = true
-KeyFrame.Draggable = true
-
-local KeyLabel = Instance.new("TextLabel")
-KeyLabel.Size = UDim2.new(1, -20, 0, 50)
-KeyLabel.Position = UDim2.new(0, 10, 0, 10)
-KeyLabel.Text = "Enter Key:"
-KeyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyLabel.BackgroundTransparency = 1
-KeyLabel.TextScaled = true
-KeyLabel.Parent = KeyFrame
-
-local KeyBox = Instance.new("TextBox")
-KeyBox.Size = UDim2.new(1, -20, 0, 40)
-KeyBox.Position = UDim2.new(0, 10, 0, 60)
-KeyBox.ClearTextOnFocus = false
-KeyBox.Text = ""
-KeyBox.TextScaled = true
-KeyBox.Parent = KeyFrame
-
-local KeyButton = Instance.new("TextButton")
-KeyButton.Size = UDim2.new(0.45, -10, 0, 30)
-KeyButton.Position = UDim2.new(0, 10, 0, 110)
-KeyButton.Text = "Submit Key"
-KeyButton.Parent = KeyFrame
-
-local GetKeyButton = Instance.new("TextButton")
-GetKeyButton.Size = UDim2.new(0.45, -10, 0, 30)
-GetKeyButton.Position = UDim2.new(0.5, 0, 0, 110)
-GetKeyButton.Text = "Get Key"
-GetKeyButton.Parent = KeyFrame
-
--- Copy key link to clipboard
-GetKeyButton.MouseButton1Click:Connect(function()
-    local keyLink = "https://link-hub.net/1104136/7ybtWpbDc6V1"
-    if pcall(function() setclipboard(keyLink) end) then
-        StarterGui:SetCore("SendNotification", {
-            Title = "Key Link",
-            Text = "Key link copied to clipboard!",
-            Duration = 4
-        })
-    else
-        StarterGui:SetCore("SendNotification", {
-            Title = "Key Link",
-            Text = "Copy manually: "..keyLink,
-            Duration = 6
-        })
-    end
-end)
-
--- Wait for correct key
-local keyCorrect = false
-KeyButton.MouseButton1Click:Connect(function()
-    if KeyBox.Text == correctKey then
-        keyCorrect = true
-        KeyFrame:Destroy()
-    else
-        StarterGui:SetCore("SendNotification", {
-            Title = "ESP Key",
-            Text = "Incorrect key! Try again.",
-            Duration = 3
-        })
-        KeyBox.Text = ""
-    end
-end)
-
-repeat wait() until keyCorrect
-
 --// VARIABLES
 local paperESPEnabled = true
 local meteorESPEnabled = true
@@ -276,6 +195,10 @@ local function teleportToMeteor()
 end
 
 --// GUI CREATION
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 200, 0, 170)
 MainFrame.Position = UDim2.new(0.5, -100, 0.5, -85)
