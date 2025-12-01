@@ -1,0 +1,193 @@
+-- Instantly set all ProximityPrompts HoldDuration to 0
+for _, v in ipairs(workspace:GetDescendants()) do
+    if v.ClassName == "ProximityPrompt" then
+        v.HoldDuration = 0
+    end
+end
+workspace.DescendantAdded:Connect(function(v)
+    if v.ClassName == "ProximityPrompt" then
+        v.HoldDuration = 0
+    end
+end)
+local lp = game.Players.LocalPlayer
+local ws = workspace
+
+-- Noclip function
+local noclipEnabled = false
+local function enableNoclip(char)
+    noclipEnabled = true
+    task.spawn(function()
+        while noclipEnabled do
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+            task.wait()
+        end
+    end)
+end
+
+local function disableNoclip(char)
+    noclipEnabled = false
+    task.wait(0.1)
+    for _, v in pairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = true
+        end
+    end
+end
+
+-- Helper function to check if trash is full
+local function isTrashFull()
+    local goldenValue = lp:GetAttribute("GoldenTrash") or 0
+    local trashValue = lp:GetAttribute("Trash") or 0
+    
+    print("Debug - GoldenTrash:", goldenValue, "Trash:", trashValue, "Sum:", goldenValue + trashValue)
+    
+    return goldenValue >= 10 or trashValue >= 10 or (goldenValue + trashValue) >= 10
+end
+
+-- Get closest available dumpster (TimerGUI.Enabled = false)
+local function getClosestAvailableDumpster(char)
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local dumpsters = ws:FindFirstChild("Map")
+    if dumpsters then
+        dumpsters = dumpsters:FindFirstChild("Environment")
+        if dumpsters then
+            dumpsters = dumpsters:FindFirstChild("Dumpsters")
+        end
+    end
+    
+    if not dumpsters then 
+        print("Dumpsters folder not found!")
+        return nil 
+    end
+    
+    local closest, dist = nil, math.huge
+    for _, v in ipairs(dumpsters:GetChildren()) do
+        if v:IsA("BasePart") and v.Name:match("Dumpster_") then
+            local timerGUI = v:FindFirstChild("TimerGUI")
+            if timerGUI and not timerGUI.Enabled then
+                local d = (root.Position - v.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = v
+                end
+            end
+        end
+    end
+    
+    if not closest then
+        print("No available dumpsters found (all TimerGUI enabled)")
+    end
+    
+    return closest
+end
+
+local function getChar()
+    local char = lp.Character or lp.CharacterAdded:Wait()
+    while not (char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid")) do
+        task.wait(0.1)
+        char = lp.Character
+    end
+    return char
+end
+
+local function getClosestVisiblePaper(char)
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    local closest, dist = nil, math.huge
+    for _, v in ipairs(ws:GetDescendants()) do
+        if v:IsA("Part") and v.Name == "Paper" and v.Transparency < 1 then
+            -- Ignore papers more than 10 studs above player
+            local heightDifference = v.Position.Y - root.Position.Y
+            if heightDifference <= 10 then
+                local d = (root.Position - v.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = v
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function moveTo(char, target)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not root or not target then return end
+    
+    while target and target.Parent and (root.Position - target.Position).Magnitude > 10 do
+        hum:MoveTo(target.Position)
+        task.wait(0.1)
+        hum = char:FindFirstChildOfClass("Humanoid")
+        root = char:FindFirstChild("HumanoidRootPart")
+        if not hum or not root then break end
+    end
+end
+
+local function firePrompt(part)
+    for _, v in ipairs(part:GetDescendants()) do
+        if v:IsA("ProximityPrompt") then
+            v:InputHoldBegin()
+            task.wait()
+            v:InputHoldEnd()
+        end
+    end
+end
+
+local function onPaperCollected(part)
+    part.Transparency = 1
+    part.CanCollide = false
+    for _, v in ipairs(part:GetChildren()) do
+        if v:IsA("ProximityPrompt") then
+            v.Enabled = false
+        end
+    end
+end
+
+-- Main autofarm loop
+task.spawn(function()
+    while true do
+        local char = getChar()
+        
+        -- Enable noclip for farming
+        enableNoclip(char)
+        
+        -- Check if trash is full
+        if isTrashFull() then
+            print("Trash full! Looking for available dumpster...")
+            
+            -- Find and go to available dumpster
+            local dumpster = getClosestAvailableDumpster(char)
+            
+            if dumpster then
+                print("Found available dumpster:", dumpster.Name)
+                moveTo(char, dumpster)
+                task.wait(1)
+                firePrompt(dumpster)
+                print("Deposited trash! Continuing farm...")
+                task.wait(2) -- Wait a bit after depositing
+            else
+                print("No available dumpsters, waiting...")
+                task.wait(3) -- Wait and check again
+            end
+        else
+            -- Farm paper
+            local paper = getClosestVisiblePaper(char)
+            if paper then
+                moveTo(char, paper)
+                task.wait(1) -- Wait 1 second before collecting
+                firePrompt(paper)
+                onPaperCollected(paper)
+                task.wait(0.2)
+            else
+                task.wait(1)
+            end
+        end
+    end
+end)
