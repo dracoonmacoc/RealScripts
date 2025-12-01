@@ -1,41 +1,233 @@
--- Instantly set all ProximityPrompts HoldDuration to 0
+-- Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local lp = Players.LocalPlayer
+local ws = workspace
+
+-- Set all ProximityPrompts HoldDuration to 0 and MaxActivationDistance to 50
 for _, v in ipairs(workspace:GetDescendants()) do
     if v.ClassName == "ProximityPrompt" then
         v.HoldDuration = 0
+        v.MaxActivationDistance = 50
     end
 end
 workspace.DescendantAdded:Connect(function(v)
     if v.ClassName == "ProximityPrompt" then
         v.HoldDuration = 0
+        v.MaxActivationDistance = 50
     end
 end)
-local lp = game.Players.LocalPlayer
-local ws = workspace
 
--- Noclip function
-local noclipEnabled = false
-local function enableNoclip(char)
-    noclipEnabled = true
-    task.spawn(function()
-        while noclipEnabled do
-            for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    v.CanCollide = false
-                end
-            end
-            task.wait()
-        end
-    end)
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoFarmGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = lp:WaitForChild("PlayerGui")
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 180, 0, 140)
+mainFrame.Position = UDim2.new(0, 20, 0, 20)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 15)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(80, 80, 90)
+mainStroke.Thickness = 2
+mainStroke.Parent = mainFrame
+
+-- Drag Handle
+local dragHandle = Instance.new("Frame")
+dragHandle.Name = "DragHandle"
+dragHandle.Size = UDim2.new(1, 0, 0, 30)
+dragHandle.Position = UDim2.new(0, 0, 0, 0)
+dragHandle.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+dragHandle.BorderSizePixel = 0
+dragHandle.Parent = mainFrame
+
+local dragCorner = Instance.new("UICorner")
+dragCorner.CornerRadius = UDim.new(0, 15)
+dragCorner.Parent = dragHandle
+
+local dragLabel = Instance.new("TextLabel")
+dragLabel.Size = UDim2.new(1, 0, 1, 0)
+dragLabel.BackgroundTransparency = 1
+dragLabel.Text = "🔄 DRAG ME"
+dragLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
+dragLabel.TextSize = 12
+dragLabel.Font = Enum.Font.GothamBold
+dragLabel.Parent = dragHandle
+
+-- Status Indicator
+local statusFrame = Instance.new("Frame")
+statusFrame.Name = "StatusFrame"
+statusFrame.Size = UDim2.new(1, -20, 0, 25)
+statusFrame.Position = UDim2.new(0, 10, 0, 40)
+statusFrame.BackgroundTransparency = 1
+statusFrame.Parent = mainFrame
+
+local statusDot = Instance.new("Frame")
+statusDot.Name = "StatusDot"
+statusDot.Size = UDim2.new(0, 8, 0, 8)
+statusDot.Position = UDim2.new(0, 30, 0.5, -4)
+statusDot.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+statusDot.BorderSizePixel = 0
+statusDot.Parent = statusFrame
+
+local dotCorner = Instance.new("UICorner")
+dotCorner.CornerRadius = UDim.new(1, 0)
+dotCorner.Parent = statusDot
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -50, 1, 0)
+statusLabel.Position = UDim2.new(0, 45, 0, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "INACTIVE"
+statusLabel.TextColor3 = Color3.fromRGB(120, 120, 130)
+statusLabel.TextSize = 14
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = statusFrame
+
+-- Toggle Button
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(1, -20, 0, 45)
+toggleButton.Position = UDim2.new(0, 10, 0, 75)
+toggleButton.BackgroundColor3 = Color3.fromRGB(40, 180, 70)
+toggleButton.BorderSizePixel = 0
+toggleButton.Text = "⚡ START FARM"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 16
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.AutoButtonColor = false
+toggleButton.Parent = mainFrame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 10)
+buttonCorner.Parent = toggleButton
+
+-- Farm State
+local farmEnabled = false
+local farmThread = nil
+
+-- Dragging functionality
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    local newPos = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+    TweenService:Create(mainFrame, TweenInfo.new(0.1), {Position = newPos}):Play()
 end
 
-local function disableNoclip(char)
+dragHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        update(input)
+    end
+end)
+
+-- INFINITE YIELD STYLE NOCLIP + NOCLIPCAM SYSTEM
+local noclipEnabled = false
+local noclipConnection = nil
+local cam = workspace.CurrentCamera
+local originalCamMode = nil
+
+local function enableNoclip()
+    if noclipConnection then return end
+    noclipEnabled = true
+    
+    -- Store original camera mode
+    originalCamMode = cam.CameraType
+    
+    -- Enable camera settings for NoClipCam
+    local player = lp
+    if player then
+        player.CameraMode = Enum.CameraMode.Classic
+        player.CameraMaxZoomDistance = 128
+        player.CameraMinZoomDistance = 0.5
+    end
+    
+    -- Disable camera occlusion (camera clips through walls)
+    pcall(function()
+        lp.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
+    end)
+    
+    -- Use Stepped for smooth noclip like Infinite Yield
+    noclipConnection = RunService.Stepped:Connect(function()
+        if not noclipEnabled then return end
+        
+        local char = lp.Character
+        if not char then return end
+        
+        -- Disable collision on all character parts
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end)
+    
+    print("✅ Noclip + NoClipCam ENABLED")
+end
+
+local function disableNoclip()
     noclipEnabled = false
-    task.wait(0.1)
-    for _, v in pairs(char:GetDescendants()) do
-        if v:IsA("BasePart") then
-            v.CanCollide = true
+    
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
+    -- Restore camera settings
+    pcall(function()
+        lp.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
+    end)
+    
+    if originalCamMode then
+        cam.CameraType = originalCamMode
+    end
+    
+    -- Re-enable collisions
+    local char = lp.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = true
+            end
         end
     end
+    
+    print("❌ Noclip + NoClipCam DISABLED")
 end
 
 -- Helper function to check if trash is full
@@ -117,11 +309,12 @@ local function getClosestVisiblePaper(char)
 end
 
 local function moveTo(char, target)
+    if not farmEnabled then return end
     local hum = char:FindFirstChildOfClass("Humanoid")
     local root = char:FindFirstChild("HumanoidRootPart")
     if not hum or not root or not target then return end
     
-    while target and target.Parent and (root.Position - target.Position).Magnitude > 10 do
+    while farmEnabled and target and target.Parent and (root.Position - target.Position).Magnitude > 10 do
         hum:MoveTo(target.Position)
         task.wait(0.1)
         hum = char:FindFirstChildOfClass("Humanoid")
@@ -150,44 +343,129 @@ local function onPaperCollected(part)
     end
 end
 
--- Main autofarm loop
-task.spawn(function()
-    while true do
-        local char = getChar()
+-- Update UI appearance
+local function updateUI()
+    if farmEnabled then
+        -- Active state
+        toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        toggleButton.Text = "⛔ STOP FARM"
+        statusLabel.Text = "ACTIVE"
+        statusLabel.TextColor3 = Color3.fromRGB(80, 230, 100)
+        statusDot.BackgroundColor3 = Color3.fromRGB(80, 230, 100)
+        mainStroke.Color = Color3.fromRGB(80, 230, 100)
         
-        -- Enable noclip for farming
-        enableNoclip(char)
-        
-        -- Check if trash is full
-        if isTrashFull() then
-            print("Trash full! Looking for available dumpster...")
-            
-            -- Find and go to available dumpster
-            local dumpster = getClosestAvailableDumpster(char)
-            
-            if dumpster then
-                print("Found available dumpster:", dumpster.Name)
-                moveTo(char, dumpster)
-                task.wait(1)
-                firePrompt(dumpster)
-                print("Deposited trash! Continuing farm...")
-                task.wait(2) -- Wait a bit after depositing
-            else
-                print("No available dumpsters, waiting...")
-                task.wait(3) -- Wait and check again
+        -- Pulsing animation
+        task.spawn(function()
+            while farmEnabled do
+                TweenService:Create(statusDot, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+                    BackgroundTransparency = 0.3
+                }):Play()
+                task.wait(0.5)
+                if farmEnabled then
+                    TweenService:Create(statusDot, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+                        BackgroundTransparency = 0
+                    }):Play()
+                    task.wait(0.5)
+                end
             end
-        else
-            -- Farm paper
-            local paper = getClosestVisiblePaper(char)
-            if paper then
-                moveTo(char, paper)
-                task.wait(1) -- Wait 1 second before collecting
-                firePrompt(paper)
-                onPaperCollected(paper)
-                task.wait(0.2)
+        end)
+    else
+        -- Inactive state
+        toggleButton.BackgroundColor3 = Color3.fromRGB(40, 180, 70)
+        toggleButton.Text = "⚡ START FARM"
+        statusLabel.Text = "INACTIVE"
+        statusLabel.TextColor3 = Color3.fromRGB(120, 120, 130)
+        statusDot.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+        statusDot.BackgroundTransparency = 0
+        mainStroke.Color = Color3.fromRGB(80, 80, 90)
+    end
+end
+
+-- Main autofarm loop
+local function startFarm()
+    farmThread = task.spawn(function()
+        while farmEnabled do
+            local char = getChar()
+            
+            -- Enable noclip for farming
+            enableNoclip()
+            
+            -- Check if trash is full
+            if isTrashFull() then
+                print("Trash full! Looking for available dumpster...")
+                
+                -- Find and go to available dumpster
+                local dumpster = getClosestAvailableDumpster(char)
+                
+                if dumpster then
+                    print("Found available dumpster:", dumpster.Name)
+                    moveTo(char, dumpster)
+                    if farmEnabled then
+                        task.wait(1)
+                        firePrompt(dumpster)
+                        print("Deposited trash! Continuing farm...")
+                        task.wait(2) -- Wait a bit after depositing
+                    end
+                else
+                    print("No available dumpsters, waiting...")
+                    task.wait(3) -- Wait and check again
+                end
             else
-                task.wait(1)
+                -- Farm paper
+                local paper = getClosestVisiblePaper(char)
+                if paper and farmEnabled then
+                    moveTo(char, paper)
+                    if farmEnabled then
+                        task.wait(1) -- Wait 1 second before collecting
+                        firePrompt(paper)
+                        onPaperCollected(paper)
+                        task.wait(0.2)
+                    end
+                else
+                    task.wait(1)
+                end
             end
         end
+        
+        -- Disable noclip when farm stops
+        disableNoclip()
+    end)
+end
+
+-- Toggle button functionality
+toggleButton.MouseButton1Click:Connect(function()
+    farmEnabled = not farmEnabled
+    updateUI()
+    
+    if farmEnabled then
+        print("🟢 Auto Farm STARTED")
+        startFarm()
+    else
+        print("🔴 Auto Farm STOPPED")
+        if farmThread then
+            task.cancel(farmThread)
+        end
+        -- Disable noclip
+        disableNoclip()
     end
 end)
+
+-- Button hover effects
+toggleButton.MouseEnter:Connect(function()
+    TweenService:Create(toggleButton, TweenInfo.new(0.2), {
+        Size = UDim2.new(1, -18, 0, 47)
+    }):Play()
+end)
+
+toggleButton.MouseLeave:Connect(function()
+    TweenService:Create(toggleButton, TweenInfo.new(0.2), {
+        Size = UDim2.new(1, -20, 0, 45)
+    }):Play()
+end)
+
+-- Initialize UI
+updateUI()
+
+print("✅ Auto Farm GUI Loaded with IY-Style Noclip + NoClipCam!")
+print("✅ All ProximityPrompts set to MaxActivationDistance = 50")
+print("✅ Use the GUI to start/stop the farm")
