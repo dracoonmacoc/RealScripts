@@ -1,4 +1,3 @@
--- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -7,7 +6,6 @@ local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
 local ws = workspace
 
--- Set all ProximityPrompts HoldDuration to 0 and MaxActivationDistance to 50
 for _, v in ipairs(workspace:GetDescendants()) do
     if v.ClassName == "ProximityPrompt" then
         v.HoldDuration = 0
@@ -21,14 +19,12 @@ workspace.DescendantAdded:Connect(function(v)
     end
 end)
 
--- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoFarmGUI"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = lp:WaitForChild("PlayerGui")
 
--- Main Frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 180, 0, 140)
@@ -46,7 +42,6 @@ mainStroke.Color = Color3.fromRGB(80, 80, 90)
 mainStroke.Thickness = 2
 mainStroke.Parent = mainFrame
 
--- Drag Handle
 local dragHandle = Instance.new("Frame")
 dragHandle.Name = "DragHandle"
 dragHandle.Size = UDim2.new(1, 0, 0, 30)
@@ -68,7 +63,6 @@ dragLabel.TextSize = 12
 dragLabel.Font = Enum.Font.GothamBold
 dragLabel.Parent = dragHandle
 
--- Status Indicator
 local statusFrame = Instance.new("Frame")
 statusFrame.Name = "StatusFrame"
 statusFrame.Size = UDim2.new(1, -20, 0, 25)
@@ -99,7 +93,6 @@ statusLabel.Font = Enum.Font.GothamBold
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.Parent = statusFrame
 
--- Toggle Button
 local toggleButton = Instance.new("TextButton")
 toggleButton.Name = "ToggleButton"
 toggleButton.Size = UDim2.new(1, -20, 0, 45)
@@ -117,11 +110,10 @@ local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 10)
 buttonCorner.Parent = toggleButton
 
--- Farm State
 local farmEnabled = false
 local farmThread = nil
+local beachChairPositions = {}
 
--- Dragging functionality
 local dragging = false
 local dragInput, dragStart, startPos
 
@@ -156,7 +148,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- INFINITE YIELD STYLE NOCLIP + NOCLIPCAM SYSTEM
 local noclipEnabled = false
 local noclipConnection = nil
 local cam = workspace.CurrentCamera
@@ -166,10 +157,8 @@ local function enableNoclip()
     if noclipConnection then return end
     noclipEnabled = true
     
-    -- Store original camera mode
     originalCamMode = cam.CameraType
     
-    -- Enable camera settings for NoClipCam
     local player = lp
     if player then
         player.CameraMode = Enum.CameraMode.Classic
@@ -177,27 +166,22 @@ local function enableNoclip()
         player.CameraMinZoomDistance = 0.5
     end
     
-    -- Disable camera occlusion (camera clips through walls)
     pcall(function()
         lp.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
     end)
     
-    -- Use Stepped for smooth noclip like Infinite Yield
     noclipConnection = RunService.Stepped:Connect(function()
         if not noclipEnabled then return end
         
         local char = lp.Character
         if not char then return end
         
-        -- Disable collision on all character parts
         for _, part in pairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.CanCollide = false
             end
         end
     end)
-    
-    print("✅ Noclip + NoClipCam ENABLED")
 end
 
 local function disableNoclip()
@@ -208,7 +192,6 @@ local function disableNoclip()
         noclipConnection = nil
     end
     
-    -- Restore camera settings
     pcall(function()
         lp.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
     end)
@@ -217,7 +200,6 @@ local function disableNoclip()
         cam.CameraType = originalCamMode
     end
     
-    -- Re-enable collisions
     local char = lp.Character
     if char then
         for _, part in pairs(char:GetDescendants()) do
@@ -226,78 +208,16 @@ local function disableNoclip()
             end
         end
     end
-    
-    print("❌ Noclip + NoClipCam DISABLED")
 end
 
--- Helper function to check if trash is full
-local function isTrashFull()
-    local goldenValue = lp:GetAttribute("GoldenTrash") or 0
-    local trashValue = lp:GetAttribute("Trash") or 0
-    
-    print("Debug - GoldenTrash:", goldenValue, "Trash:", trashValue, "Sum:", goldenValue + trashValue)
-    
-    return goldenValue >= 10 or trashValue >= 10 or (goldenValue + trashValue) >= 10
-end
-
--- Get closest available dumpster (TimerGUI.Enabled = false)
-local function getClosestAvailableDumpster(char)
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
-    
-    local dumpsters = ws:FindFirstChild("Map")
-    if dumpsters then
-        dumpsters = dumpsters:FindFirstChild("Environment")
-        if dumpsters then
-            dumpsters = dumpsters:FindFirstChild("Dumpsters")
-        end
-    end
-    
-    if not dumpsters then 
-        print("Dumpsters folder not found!")
-        return nil 
-    end
-    
-    local closest, dist = nil, math.huge
-    for _, v in ipairs(dumpsters:GetChildren()) do
-        if v:IsA("BasePart") and v.Name:match("Dumpster_") then
-            local timerGUI = v:FindFirstChild("TimerGUI")
-            if timerGUI and not timerGUI.Enabled then
-                local d = (root.Position - v.Position).Magnitude
-                if d < dist then
-                    dist = d
-                    closest = v
-                end
-            end
-        end
-    end
-    
-    if not closest then
-        print("No available dumpsters found (all TimerGUI enabled)")
-    end
-    
-    return closest
-end
-
-local function getChar()
-    local char = lp.Character or lp.CharacterAdded:Wait()
-    while not (char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid")) do
-        task.wait(0.1)
-        char = lp.Character
-    end
-    return char
-end
-
--- Helper function to check if paper is near a Beach chair
-local function isPaperNearBeachChair(paperPosition)
+local function cacheBeachChairs()
+    beachChairPositions = {}
     for _, obj in ipairs(ws:GetDescendants()) do
         if obj:IsA("Model") and obj.Name == "Beach chair" then
-            -- Get the model's center position
             local chairPosition
             if obj.PrimaryPart then
                 chairPosition = obj.PrimaryPart.Position
             else
-                -- Calculate center if no PrimaryPart
                 local parts = {}
                 for _, part in ipairs(obj:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -314,27 +234,97 @@ local function isPaperNearBeachChair(paperPosition)
             end
             
             if chairPosition then
-                local distance = (paperPosition - chairPosition).Magnitude
-                if distance <= 100 then
-                    print("Paper ignored - within 100 studs of Beach chair (distance: " .. math.floor(distance) .. " studs)")
-                    return true
+                table.insert(beachChairPositions, chairPosition)
+            end
+        end
+    end
+end
+
+local function isTrashFull()
+    local goldenValue = lp:GetAttribute("GoldenTrash") or 0
+    local trashValue = lp:GetAttribute("Trash") or 0
+    return goldenValue >= 10 or trashValue >= 10 or (goldenValue + trashValue) >= 10
+end
+
+local function getClosestAvailableDumpster(char)
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local dumpsters = ws:FindFirstChild("Map")
+    if dumpsters then
+        dumpsters = dumpsters:FindFirstChild("Environment")
+        if dumpsters then
+            dumpsters = dumpsters:FindFirstChild("Dumpsters")
+        end
+    end
+    
+    if not dumpsters then return nil end
+    
+    local closest, dist = nil, math.huge
+    for _, v in ipairs(dumpsters:GetChildren()) do
+        if v:IsA("BasePart") and v.Name:match("Dumpster_") then
+            local timerGUI = v:FindFirstChild("TimerGUI")
+            if timerGUI and not timerGUI.Enabled then
+                local d = (root.Position - v.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = v
                 end
             end
+        end
+    end
+    
+    return closest
+end
+
+local function getChar()
+    local char = lp.Character or lp.CharacterAdded:Wait()
+    while not (char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid")) do
+        task.wait(0.1)
+        char = lp.Character
+    end
+    return char
+end
+
+local function isPaperNearBeachChair(paperPosition)
+    for _, chairPos in ipairs(beachChairPositions) do
+        local distance = (paperPosition - chairPos).Magnitude
+        if distance <= 100 then
+            return true
         end
     end
     return false
 end
 
+local paperCache = {}
+local lastPaperUpdate = 0
+
+local function updatePaperCache()
+    local now = tick()
+    if now - lastPaperUpdate < 2 then
+        return
+    end
+    lastPaperUpdate = now
+    
+    paperCache = {}
+    for _, v in ipairs(ws:GetDescendants()) do
+        if v:IsA("Part") and v.Name == "Paper" and v.Transparency < 1 then
+            table.insert(paperCache, v)
+        end
+    end
+end
+
 local function getClosestVisiblePaper(char)
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
+    
+    updatePaperCache()
+    
     local closest, dist = nil, math.huge
-    for _, v in ipairs(ws:GetDescendants()) do
-        if v:IsA("Part") and v.Name == "Paper" and v.Transparency < 1 then
-            -- Ignore papers more than 10 studs above player
+    for _, v in ipairs(paperCache) do
+        if v.Parent and v.Transparency < 1 then
             local heightDifference = v.Position.Y - root.Position.Y
             if heightDifference <= 10 then
-                -- Check if paper is near a Beach chair
                 if not isPaperNearBeachChair(v.Position) then
                     local d = (root.Position - v.Position).Magnitude
                     if d < dist then
@@ -383,10 +373,8 @@ local function onPaperCollected(part)
     end
 end
 
--- Update UI appearance
 local function updateUI()
     if farmEnabled then
-        -- Active state
         toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         toggleButton.Text = "⛔ STOP FARM"
         statusLabel.Text = "ACTIVE"
@@ -394,7 +382,6 @@ local function updateUI()
         statusDot.BackgroundColor3 = Color3.fromRGB(80, 230, 100)
         mainStroke.Color = Color3.fromRGB(80, 230, 100)
         
-        -- Pulsing animation
         task.spawn(function()
             while farmEnabled do
                 TweenService:Create(statusDot, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
@@ -410,7 +397,6 @@ local function updateUI()
             end
         end)
     else
-        -- Inactive state
         toggleButton.BackgroundColor3 = Color3.fromRGB(40, 180, 70)
         toggleButton.Text = "⚡ START FARM"
         statusLabel.Text = "INACTIVE"
@@ -421,42 +407,34 @@ local function updateUI()
     end
 end
 
--- Main autofarm loop
 local function startFarm()
     farmThread = task.spawn(function()
+        cacheBeachChairs()
+        
         while farmEnabled do
             local char = getChar()
             
-            -- Enable noclip for farming
             enableNoclip()
             
-            -- Check if trash is full
             if isTrashFull() then
-                print("Trash full! Looking for available dumpster...")
-                
-                -- Find and go to available dumpster
                 local dumpster = getClosestAvailableDumpster(char)
                 
                 if dumpster then
-                    print("Found available dumpster:", dumpster.Name)
                     moveTo(char, dumpster)
                     if farmEnabled then
                         task.wait(1)
                         firePrompt(dumpster)
-                        print("Deposited trash! Continuing farm...")
-                        task.wait(2) -- Wait a bit after depositing
+                        task.wait(2)
                     end
                 else
-                    print("No available dumpsters, waiting...")
-                    task.wait(3) -- Wait and check again
+                    task.wait(3)
                 end
             else
-                -- Farm paper
                 local paper = getClosestVisiblePaper(char)
                 if paper and farmEnabled then
                     moveTo(char, paper)
                     if farmEnabled then
-                        task.wait(1) -- Wait 1 second before collecting
+                        task.wait(1)
                         firePrompt(paper)
                         onPaperCollected(paper)
                         task.wait(0.2)
@@ -467,30 +445,24 @@ local function startFarm()
             end
         end
         
-        -- Disable noclip when farm stops
         disableNoclip()
     end)
 end
 
--- Toggle button functionality
 toggleButton.MouseButton1Click:Connect(function()
     farmEnabled = not farmEnabled
     updateUI()
     
     if farmEnabled then
-        print("🟢 Auto Farm STARTED")
         startFarm()
     else
-        print("🔴 Auto Farm STOPPED")
         if farmThread then
             task.cancel(farmThread)
         end
-        -- Disable noclip
         disableNoclip()
     end
 end)
 
--- Button hover effects
 toggleButton.MouseEnter:Connect(function()
     TweenService:Create(toggleButton, TweenInfo.new(0.2), {
         Size = UDim2.new(1, -18, 0, 47)
@@ -503,10 +475,4 @@ toggleButton.MouseLeave:Connect(function()
     }):Play()
 end)
 
--- Initialize UI
 updateUI()
-
-print("✅ Auto Farm GUI Loaded with IY-Style Noclip + NoClipCam!")
-print("✅ All ProximityPrompts set to MaxActivationDistance = 50")
-print("✅ Papers within 100 studs of 'Beach chair' will be ignored")
-print("✅ Use the GUI to start/stop the farm")
