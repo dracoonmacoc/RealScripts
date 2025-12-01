@@ -288,6 +288,43 @@ local function getChar()
     return char
 end
 
+-- Helper function to check if paper is near a Beach chair
+local function isPaperNearBeachChair(paperPosition)
+    for _, obj in ipairs(ws:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name == "Beach chair" then
+            -- Get the model's center position
+            local chairPosition
+            if obj.PrimaryPart then
+                chairPosition = obj.PrimaryPart.Position
+            else
+                -- Calculate center if no PrimaryPart
+                local parts = {}
+                for _, part in ipairs(obj:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        table.insert(parts, part)
+                    end
+                end
+                if #parts > 0 then
+                    local sum = Vector3.new(0, 0, 0)
+                    for _, part in ipairs(parts) do
+                        sum = sum + part.Position
+                    end
+                    chairPosition = sum / #parts
+                end
+            end
+            
+            if chairPosition then
+                local distance = (paperPosition - chairPosition).Magnitude
+                if distance <= 100 then
+                    print("Paper ignored - within 100 studs of Beach chair (distance: " .. math.floor(distance) .. " studs)")
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
 local function getClosestVisiblePaper(char)
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
@@ -297,10 +334,13 @@ local function getClosestVisiblePaper(char)
             -- Ignore papers more than 10 studs above player
             local heightDifference = v.Position.Y - root.Position.Y
             if heightDifference <= 10 then
-                local d = (root.Position - v.Position).Magnitude
-                if d < dist then
-                    dist = d
-                    closest = v
+                -- Check if paper is near a Beach chair
+                if not isPaperNearBeachChair(v.Position) then
+                    local d = (root.Position - v.Position).Magnitude
+                    if d < dist then
+                        dist = d
+                        closest = v
+                    end
                 end
             end
         end
@@ -468,4 +508,5 @@ updateUI()
 
 print("✅ Auto Farm GUI Loaded with IY-Style Noclip + NoClipCam!")
 print("✅ All ProximityPrompts set to MaxActivationDistance = 50")
+print("✅ Papers within 100 studs of 'Beach chair' will be ignored")
 print("✅ Use the GUI to start/stop the farm")
