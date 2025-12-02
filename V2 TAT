@@ -14,11 +14,9 @@ local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 local paperESPEnabled = true
 local meteorESPEnabled = true
 local espObjects = {}
-local tweenSpeed = 50 -- teleport speed
+local tweenSpeed = 50
 
 --// FUNCTIONS
-
--- Create ESP for target
 local function createESP(target)
     if espObjects[target] then return end
     local highlight = Instance.new("Highlight")
@@ -38,7 +36,6 @@ local function createESP(target)
     espObjects[target] = highlight
 end
 
--- Remove ESP
 local function removeESP(target)
     if espObjects[target] then
         espObjects[target]:Destroy()
@@ -46,13 +43,11 @@ local function removeESP(target)
     end
 end
 
--- Check descendant for ESP
 local function checkDescendant(desc)
     if desc:IsA("BasePart") and desc.Name == "Paper" and paperESPEnabled then
         createESP(desc)
     elseif desc:IsA("Model") and desc.Name == "Meteor" and meteorESPEnabled then
         createESP(desc)
-        -- Notification when Meteor spawns
         StarterGui:SetCore("SendNotification", {
             Title = "Meteor Detected!",
             Text = "A Meteor has spawned!",
@@ -61,7 +56,6 @@ local function checkDescendant(desc)
     end
 end
 
--- Cleanup destroyed objects
 local function cleanup()
     for obj, _ in pairs(espObjects) do
         if not obj:IsDescendantOf(game) then
@@ -70,7 +64,6 @@ local function cleanup()
     end
 end
 
--- Watch Workspace
 local function watchWorkspace()
     for _, desc in ipairs(Workspace:GetDescendants()) do
         checkDescendant(desc)
@@ -81,7 +74,6 @@ local function watchWorkspace()
     end)
 end
 
--- Toggle ESP functions
 local function togglePaperESP()
     paperESPEnabled = not paperESPEnabled
     for obj, _ in pairs(espObjects) do
@@ -110,7 +102,6 @@ local function toggleMeteorESP()
     end
 end
 
--- Safe teleport function
 local function safeTeleport(targetCFrame)
     if not targetCFrame then return end
     local distance = (HumanoidRootPart.Position - targetCFrame.Position).Magnitude
@@ -119,7 +110,6 @@ local function safeTeleport(targetCFrame)
     tween:Play()
 end
 
--- Teleport to Paper
 local function teleportToPaper()
     local nearest
     local shortest = math.huge
@@ -139,7 +129,6 @@ local function teleportToPaper()
     end
 end
 
--- Teleport to Meteor
 local function teleportToMeteor()
     local nearestModel
     local shortest = math.huge
@@ -194,75 +183,242 @@ local function teleportToMeteor()
     end
 end
 
---// GUI CREATION
+--// MODERN GUI CREATION
 local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ModernESPHub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
+-- Main Hub Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 170)
-MainFrame.Position = UDim2.new(0.5, -100, 0.5, -85)
-MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MainFrame.Name = "MainHub"
+MainFrame.Size = UDim2.new(0, 360, 0, 280)
+MainFrame.Position = UDim2.new(0.5, -180, 0.5, -140)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+-- Gradient Effect
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 45)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30))
+}
+Gradient.Rotation = 45
+Gradient.Parent = MainFrame
+
+-- Accent Line
+local AccentLine = Instance.new("Frame")
+AccentLine.Size = UDim2.new(1, 0, 0, 3)
+AccentLine.Position = UDim2.new(0, 0, 0, 0)
+AccentLine.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+AccentLine.BorderSizePixel = 0
+AccentLine.Parent = MainFrame
+
+local LineCorner = Instance.new("UICorner")
+LineCorner.CornerRadius = UDim.new(0, 12)
+LineCorner.Parent = AccentLine
+
+-- Title
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 25)
+Title.Size = UDim2.new(1, -20, 0, 40)
+Title.Position = UDim2.new(0, 10, 0, 10)
 Title.BackgroundTransparency = 1
-Title.Text = "ESP GUI"
+Title.Text = "⚡ ESP HUB"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = MainFrame
 
-local PaperButton = Instance.new("TextButton")
-PaperButton.Size = UDim2.new(1, -10, 0, 30)
-PaperButton.Position = UDim2.new(0, 5, 0, 35)
-PaperButton.Text = "Toggle Paper ESP"
-PaperButton.Parent = MainFrame
-PaperButton.MouseButton1Click:Connect(togglePaperESP)
+local Version = Instance.new("TextLabel")
+Version.Size = UDim2.new(0, 60, 0, 20)
+Version.Position = UDim2.new(1, -70, 0, 15)
+Version.BackgroundTransparency = 1
+Version.Text = "v1.0"
+Version.Font = Enum.Font.Gotham
+Version.TextSize = 12
+Version.TextColor3 = Color3.fromRGB(150, 150, 150)
+Version.Parent = MainFrame
 
-local MeteorButton = Instance.new("TextButton")
-MeteorButton.Size = UDim2.new(1, -10, 0, 30)
-MeteorButton.Position = UDim2.new(0, 5, 0, 70)
-MeteorButton.Text = "Toggle Meteor ESP"
-MeteorButton.Parent = MainFrame
-MeteorButton.MouseButton1Click:Connect(toggleMeteorESP)
+-- Container for buttons
+local Container = Instance.new("Frame")
+Container.Size = UDim2.new(1, -20, 1, -60)
+Container.Position = UDim2.new(0, 10, 0, 50)
+Container.BackgroundTransparency = 1
+Container.Parent = MainFrame
 
-local TPPaperButton = Instance.new("TextButton")
-TPPaperButton.Size = UDim2.new(1, -10, 0, 30)
-TPPaperButton.Position = UDim2.new(0, 5, 0, 105)
-TPPaperButton.Text = "TP to Paper"
-TPPaperButton.Parent = MainFrame
-TPPaperButton.MouseButton1Click:Connect(teleportToPaper)
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 10)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = Container
 
-local TPMeteorButton = Instance.new("TextButton")
-TPMeteorButton.Size = UDim2.new(1, -10, 0, 30)
-TPMeteorButton.Position = UDim2.new(0, 5, 0, 140)
-TPMeteorButton.Text = "TP to Meteor"
-TPMeteorButton.Parent = MainFrame
-TPMeteorButton.MouseButton1Click:Connect(teleportToMeteor)
+-- Function to create toggle button
+local function createToggleButton(name, icon, enabled, callback)
+    local Button = Instance.new("Frame")
+    Button.Size = UDim2.new(1, 0, 0, 45)
+    Button.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+    Button.BorderSizePixel = 0
+    Button.Parent = Container
 
-local GUIButton = Instance.new("TextButton")
-GUIButton.Size = UDim2.new(0, 40, 0, 40)
-GUIButton.Position = UDim2.new(0, 10, 0, 10)
-GUIButton.Text = "GUI"
-GUIButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-GUIButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-GUIButton.Parent = ScreenGui
-GUIButton.Active = true
-GUIButton.Draggable = true
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 8)
+    ButtonCorner.Parent = Button
 
-GUIButton.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -60, 1, 0)
+    Label.Position = UDim2.new(0, 10, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = icon .. " " .. name
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = 14
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Button
 
-local function scaleGUI()
-    local scale = math.clamp(math.min(workspace.CurrentCamera.ViewportSize.X / 1920, workspace.CurrentCamera.ViewportSize.Y / 1080), 0.5, 1.5)
-    MainFrame.Size = UDim2.new(0, 200 * scale, 0, 170 * scale)
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Size = UDim2.new(0, 50, 0, 26)
+    ToggleButton.Position = UDim2.new(1, -60, 0.5, -13)
+    ToggleButton.BackgroundColor3 = enabled and Color3.fromRGB(50, 200, 100) or Color3.fromRGB(60, 60, 75)
+    ToggleButton.BorderSizePixel = 0
+    ToggleButton.Text = ""
+    ToggleButton.Parent = Button
+
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(1, 0)
+    ToggleCorner.Parent = ToggleButton
+
+    local ToggleCircle = Instance.new("Frame")
+    ToggleCircle.Size = UDim2.new(0, 20, 0, 20)
+    ToggleCircle.Position = enabled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
+    ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleCircle.BorderSizePixel = 0
+    ToggleCircle.Parent = ToggleButton
+
+    local CircleCorner = Instance.new("UICorner")
+    CircleCorner.CornerRadius = UDim.new(1, 0)
+    CircleCorner.Parent = ToggleCircle
+
+    local isEnabled = enabled
+
+    ToggleButton.MouseButton1Click:Connect(function()
+        isEnabled = not isEnabled
+        callback()
+        
+        local bgColor = isEnabled and Color3.fromRGB(50, 200, 100) or Color3.fromRGB(60, 60, 75)
+        local position = isEnabled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
+        
+        TweenService:Create(ToggleButton, TweenInfo.new(0.2), {BackgroundColor3 = bgColor}):Play()
+        TweenService:Create(ToggleCircle, TweenInfo.new(0.2), {Position = position}):Play()
+    end)
+
+    return Button
 end
 
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(scaleGUI)
-scaleGUI()
+-- Function to create action button
+local function createActionButton(name, icon, callback)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1, 0, 0, 45)
+    Button.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+    Button.BorderSizePixel = 0
+    Button.Text = icon .. " " .. name
+    Button.Font = Enum.Font.GothamBold
+    Button.TextSize = 14
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Parent = Container
 
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 8)
+    ButtonCorner.Parent = Button
+
+    Button.MouseEnter:Connect(function()
+        TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 85)}):Play()
+    end)
+
+    Button.MouseLeave:Connect(function()
+        TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 45, 65)}):Play()
+    end)
+
+    Button.MouseButton1Click:Connect(callback)
+
+    return Button
+end
+
+-- Create all buttons
+createToggleButton("Paper ESP", "📄", paperESPEnabled, togglePaperESP)
+createToggleButton("Meteor ESP", "☄️", meteorESPEnabled, toggleMeteorESP)
+createActionButton("Teleport to Paper", "🔹", teleportToPaper)
+createActionButton("Teleport to Meteor", "🔸", teleportToMeteor)
+
+-- Toggle Hub Button (floating)
+local ToggleHubButton = Instance.new("TextButton")
+ToggleHubButton.Name = "ToggleHub"
+ToggleHubButton.Size = UDim2.new(0, 55, 0, 55)
+ToggleHubButton.Position = UDim2.new(0, 20, 0, 20)
+ToggleHubButton.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+ToggleHubButton.BorderSizePixel = 0
+ToggleHubButton.Text = "⚡"
+ToggleHubButton.Font = Enum.Font.GothamBold
+ToggleHubButton.TextSize = 24
+ToggleHubButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleHubButton.Parent = ScreenGui
+ToggleHubButton.Active = true
+ToggleHubButton.Draggable = true
+
+local HubButtonCorner = Instance.new("UICorner")
+HubButtonCorner.CornerRadius = UDim.new(1, 0)
+HubButtonCorner.Parent = ToggleHubButton
+
+local HubButtonShadow = Instance.new("ImageLabel")
+HubButtonShadow.Size = UDim2.new(1, 10, 1, 10)
+HubButtonShadow.Position = UDim2.new(0, -5, 0, -5)
+HubButtonShadow.BackgroundTransparency = 1
+HubButtonShadow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+HubButtonShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+HubButtonShadow.ImageTransparency = 0.7
+HubButtonShadow.ZIndex = 0
+HubButtonShadow.Parent = ToggleHubButton
+
+ToggleHubButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    
+    if MainFrame.Visible then
+        MainFrame.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
+            Size = UDim2.new(0, 360, 0, 280)
+        }):Play()
+    end
+end)
+
+ToggleHubButton.MouseEnter:Connect(function()
+    TweenService:Create(ToggleHubButton, TweenInfo.new(0.2), {
+        Size = UDim2.new(0, 60, 0, 60),
+        BackgroundColor3 = Color3.fromRGB(120, 170, 255)
+    }):Play()
+end)
+
+ToggleHubButton.MouseLeave:Connect(function()
+    TweenService:Create(ToggleHubButton, TweenInfo.new(0.2), {
+        Size = UDim2.new(0, 55, 0, 55),
+        BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    }):Play()
+end)
+
+-- Initial animation
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
+MainFrame.Visible = true
+TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
+    Size = UDim2.new(0, 360, 0, 280)
+}):Play()
+
+-- Cleanup and start
 RunService.RenderStepped:Connect(cleanup)
 watchWorkspace()
+
+print("Modern ESP Hub loaded successfully!")
