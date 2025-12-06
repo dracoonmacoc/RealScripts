@@ -1,15 +1,797 @@
-local player = game.Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local bar = playerGui:WaitForChild("HUD"):WaitForChild("Launch"):WaitForChild("Bar")
+-- Launch Handler Exploit Script v10 (RESPAWN-PROOF Edition)
+-- Fixed character respawn issues with dynamic reference management
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 
--- Find Tracker and Goal frames
-local tracker = bar:WaitForChild("Tracker")
-local goal = bar:WaitForChild("Goal")
+local LocalPlayer = Players.LocalPlayer
 
--- Keep Goal synced with Tracker
-RunService.RenderStepped:Connect(function()
-    if tracker and goal then
-        goal.Position = tracker.Position
+-- Инициализация getgenv()
+getgenv().LaunchExploit = getgenv().LaunchExploit or {}
+
+-- Настройки в getgenv()
+getgenv().LaunchExploit.Settings = getgenv().LaunchExploit.Settings or {
+    AutoPerfect = false,
+    Active = true
+}
+
+-- Состояние эксплойта в getgenv()
+getgenv().LaunchExploit.State = getgenv().LaunchExploit.State or {
+    initialized = false,
+    reinitCount = 0,
+    connections = {},
+    lastInitTime = 0,
+    currentAnimations = {} -- Store animation tracks here
+}
+
+-- Сокращенные ссылки
+local Settings = getgenv().LaunchExploit.Settings
+local exploitState = getgenv().LaunchExploit.State
+
+-- Создание мобильной кнопки
+local function createMobileButton()
+    local existing = nil
+    pcall(function()
+        existing = CoreGui:FindFirstChild("LaunchExploitMobileButton")
+    end)
+    if not existing then
+        pcall(function()
+            existing = LocalPlayer.PlayerGui:FindFirstChild("LaunchExploitMobileButton")
+        end)
+    end
+    
+    if existing then 
+        return existing, existing:FindFirstChild("OpenButton")
+    end
+    
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "LaunchExploitMobileButton"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.DisplayOrder = 999
+    
+    pcall(function()
+        ScreenGui.Parent = CoreGui
+    end)
+    if not ScreenGui.Parent then
+        ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    local Button = Instance.new("TextButton")
+    Button.Name = "OpenButton"
+    Button.Size = UDim2.new(0, 60, 0, 60)
+    Button.Position = UDim2.new(0, 10, 0.5, -30)
+    Button.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+    Button.BorderSizePixel = 0
+    Button.Text = "🚀"
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 30
+    Button.Font = Enum.Font.GothamBold
+    Button.Active = true
+    Button.Draggable = true
+    Button.Parent = ScreenGui
+    
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.5, 0)
+    UICorner.Parent = Button
+    
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(200, 50, 50)
+    UIStroke.Thickness = 3
+    UIStroke.Parent = Button
+    
+    return ScreenGui, Button
+end
+
+-- Создание GUI управления
+local function createControlGUI()
+    local existing = nil
+    pcall(function()
+        existing = CoreGui:FindFirstChild("LaunchExploitGUI")
+    end)
+    if not existing then
+        pcall(function()
+            existing = LocalPlayer.PlayerGui:FindFirstChild("LaunchExploitGUI")
+        end)
+    end
+    
+    if existing then 
+        return existing, existing:FindFirstChild("MainFrame"):FindFirstChild("StatusLabel"), existing:FindFirstChild("MainFrame")
+    end
+    
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "LaunchExploitGUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.DisplayOrder = 1000
+    
+    pcall(function()
+        ScreenGui.Parent = CoreGui
+    end)
+    if not ScreenGui.Parent then
+        ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 280, 0, 200)
+    MainFrame.Position = UDim2.new(0.5, -140, 0.1, 0)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.Visible = false
+    MainFrame.Parent = ScreenGui
+    
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = MainFrame
+    
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(255, 100, 100)
+    UIStroke.Thickness = 2
+    UIStroke.Parent = MainFrame
+    
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(1, 0, 0, 40)
+    Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Title.BorderSizePixel = 0
+    Title.Text = "🚀 Launch Exploit v10"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 18
+    Title.Font = Enum.Font.GothamBold
+    Title.Parent = MainFrame
+    
+    local TitleCorner = Instance.new("UICorner")
+    TitleCorner.CornerRadius = UDim.new(0, 10)
+    TitleCorner.Parent = Title
+    
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Name = "CloseButton"
+    CloseButton.Size = UDim2.new(0, 35, 0, 35)
+    CloseButton.Position = UDim2.new(1, -37, 0, 2.5)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    CloseButton.BorderSizePixel = 0
+    CloseButton.Text = "✕"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 20
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.Parent = MainFrame
+    
+    local CloseCorner = Instance.new("UICorner")
+    CloseCorner.CornerRadius = UDim.new(0, 8)
+    CloseCorner.Parent = CloseButton
+    
+    CloseButton.MouseButton1Click:Connect(function()
+        MainFrame.Visible = false
+    end)
+    
+    local AutoPerfectToggle = Instance.new("TextButton")
+    AutoPerfectToggle.Name = "AutoPerfectToggle"
+    AutoPerfectToggle.Size = UDim2.new(0, 240, 0, 45)
+    AutoPerfectToggle.Position = UDim2.new(0.5, -120, 0, 55)
+    AutoPerfectToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    AutoPerfectToggle.BorderSizePixel = 0
+    AutoPerfectToggle.Text = "Auto Perfect: OFF"
+    AutoPerfectToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AutoPerfectToggle.TextSize = 16
+    AutoPerfectToggle.Font = Enum.Font.GothamBold
+    AutoPerfectToggle.Parent = MainFrame
+    
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(0, 8)
+    ToggleCorner.Parent = AutoPerfectToggle
+    
+    local ToggleStroke = Instance.new("UIStroke")
+    ToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+    ToggleStroke.Thickness = 2
+    ToggleStroke.Parent = AutoPerfectToggle
+    
+    AutoPerfectToggle.MouseButton1Click:Connect(function()
+        Settings.AutoPerfect = not Settings.AutoPerfect
+        AutoPerfectToggle.Text = "Auto Perfect: " .. (Settings.AutoPerfect and "ON" or "OFF")
+        AutoPerfectToggle.BackgroundColor3 = Settings.AutoPerfect and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(50, 50, 50)
+        ToggleStroke.Color = Settings.AutoPerfect and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(100, 100, 100)
+        print("[Launch Exploit] Auto Perfect:", Settings.AutoPerfect)
+    end)
+    
+    local InfoLabel = Instance.new("TextLabel")
+    InfoLabel.Name = "InfoLabel"
+    InfoLabel.Size = UDim2.new(1, -20, 0, 25)
+    InfoLabel.Position = UDim2.new(0, 10, 0, 110)
+    InfoLabel.BackgroundTransparency = 1
+    InfoLabel.Text = "Perfect = 2 | Good = 1 | Miss = 0"
+    InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    InfoLabel.TextSize = 11
+    InfoLabel.Font = Enum.Font.Gotham
+    InfoLabel.TextXAlignment = Enum.TextXAlignment.Center
+    InfoLabel.Parent = MainFrame
+    
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Size = UDim2.new(1, -20, 0, 30)
+    StatusLabel.Position = UDim2.new(0, 10, 0, 140)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Text = "Status: Initializing..."
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    StatusLabel.TextSize = 13
+    StatusLabel.Font = Enum.Font.GothamBold
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    StatusLabel.Parent = MainFrame
+    
+    local ReinitLabel = Instance.new("TextLabel")
+    ReinitLabel.Name = "ReinitLabel"
+    ReinitLabel.Size = UDim2.new(1, -20, 0, 20)
+    ReinitLabel.Position = UDim2.new(0, 10, 0, 175)
+    ReinitLabel.BackgroundTransparency = 1
+    ReinitLabel.Text = "Reinits: 0"
+    ReinitLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    ReinitLabel.TextSize = 11
+    ReinitLabel.Font = Enum.Font.Gotham
+    ReinitLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ReinitLabel.Parent = MainFrame
+    
+    return ScreenGui, StatusLabel, MainFrame, ReinitLabel
+end
+
+local MobileButtonGui, MobileButton = createMobileButton()
+local ControlGUI, StatusLabel, MainFrame, ReinitLabel = createControlGUI()
+
+MobileButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- ПОСТОЯННАЯ заморозка оригинального скрипта
+task.spawn(function()
+    while Settings.Active do
+        task.wait(0.3)
+        pcall(function()
+            local HUD = LocalPlayer.PlayerGui:FindFirstChild("HUD")
+            if HUD then
+                local Launch = HUD:FindFirstChild("Launch")
+                if Launch then
+                    local originalScript = Launch:FindFirstChild("Client Launch Handler")
+                    if originalScript and originalScript.Enabled then
+                        originalScript.Enabled = false
+                        originalScript.Disabled = true
+                    end
+                end
+            end
+        end)
     end
 end)
+
+-- ЗАМЕНА оригинального Tracker модуля
+local function createTrackerModule(trackerUI, parentScript)
+    local module = {}
+    
+    local BindableEvent = Instance.new("BindableEvent")
+    local currentTween = nil
+    local tweenConnection = nil
+    
+    function module.Update()
+        if currentTween then
+            currentTween:Cancel()
+            pcall(function() currentTween:Destroy() end)
+        end
+        if tweenConnection then
+            tweenConnection:Disconnect()
+            tweenConnection = nil
+        end
+        
+        local TrainableStats = getgenv().Data and getgenv().Data.TrainableStats or {}
+        local strength = TrainableStats.Strength or 0
+        
+        local duration = 1.5
+        pcall(function()
+            local TrainingConfig = require(ReplicatedStorage:WaitForChild("Shared Modules"):WaitForChild("Training Config"))
+            local floored = math.floor(strength / TrainingConfig.Strength.PerHealth)
+            duration = math.clamp(0.5 + floored * 0.0015 - 0.0015, 0, 0.7)
+            
+            if parentScript and parentScript.Parent and parentScript.Parent:FindFirstChild("Strength") then
+                parentScript.Parent.Strength.Text = string.format("Launch Mastery: %d", floored)
+            end
+        end)
+        
+        currentTween = TweenService:Create(
+            trackerUI,
+            TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, true),
+            { Position = UDim2.new(1, 0, 0, -8) }
+        )
+        
+        tweenConnection = currentTween.Completed:Connect(function(playbackState)
+            BindableEvent:Fire(playbackState)
+        end)
+    end
+    
+    function module.Play()
+        if currentTween then
+            currentTween:Play()
+        end
+    end
+    
+    function module.Cancel()
+        if currentTween then
+            currentTween:Cancel()
+        end
+    end
+    
+    function module.Pause()
+        if currentTween then
+            currentTween:Pause()
+        end
+    end
+    
+    module.Completed = BindableEvent.Event
+    
+    return module
+end
+
+-- Функция отключения всех соединений
+local function disconnectAll()
+    for _, conn in pairs(exploitState.connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    exploitState.connections = {}
+    
+    -- Clean up old animations
+    for _, anim in pairs(exploitState.currentAnimations) do
+        pcall(function() 
+            anim:Stop()
+            anim:Destroy()
+        end)
+    end
+    exploitState.currentAnimations = {}
+end
+
+-- Helper function to get current character with validation
+local function getCurrentCharacter()
+    local char = LocalPlayer.Character
+    if not char or not char.Parent then
+        return nil
+    end
+    
+    -- Validate character has essential parts
+    if not char:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then
+        return nil
+    end
+    
+    return char
+end
+
+-- Helper function to load animations safely
+local function loadAnimations()
+    local char = getCurrentCharacter()
+    if not char then
+        return nil, nil
+    end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then
+        return nil, nil
+    end
+    
+    local animator = humanoid:FindFirstChild("Animator")
+    if not animator then
+        return nil, nil
+    end
+    
+    local animations = ReplicatedStorage:FindFirstChild("Animations")
+    if not animations then
+        return nil, nil
+    end
+    
+    local windTop = animations:FindFirstChild("Wind Top")
+    local releaseTop = animations:FindFirstChild("Release Top")
+    
+    if not windTop or not releaseTop then
+        return nil, nil
+    end
+    
+    local windAnim = animator:LoadAnimation(windTop)
+    local releaseAnim = animator:LoadAnimation(releaseTop)
+    
+    exploitState.currentAnimations = {windAnim, releaseAnim}
+    
+    return windAnim, releaseAnim
+end
+
+-- ГЛАВНАЯ ЛОГИКА С ДИНАМИЧЕСКОЙ РЕИНИЦИАЛИЗАЦИЕЙ
+local function initializeExploit(isReinit)
+    local initType = isReinit and "Reinitializing" or "Initializing"
+    print(string.format("[Launch Exploit] %s... (attempt #%d)", initType, exploitState.reinitCount + 1))
+    
+    -- Защита от слишком частой реинициализации
+    if os.time() - exploitState.lastInitTime < 1 then
+        task.wait(1)
+    end
+    exploitState.lastInitTime = os.time()
+    
+    StatusLabel.Text = "⏳ " .. initType .. "..."
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    
+    -- Отключаем старые подключения
+    disconnectAll()
+    
+    -- Wait for character to be fully loaded
+    local char = getCurrentCharacter()
+    if not char then
+        char = LocalPlayer.CharacterAdded:Wait()
+        task.wait(0.5) -- Let character fully load
+    end
+    
+    -- Wait for essential character parts
+    if not char:FindFirstChild("HumanoidRootPart") then
+        char:WaitForChild("HumanoidRootPart", 10)
+    end
+    
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- Wait for HUD with retry logic
+    local HUD = PlayerGui:FindFirstChild("HUD")
+    if not HUD then
+        local attempts = 0
+        repeat
+            task.wait(0.5)
+            HUD = PlayerGui:FindFirstChild("HUD")
+            attempts = attempts + 1
+        until HUD or attempts > 20
+    end
+    
+    if not HUD then
+        warn("[Launch Exploit] HUD not found after waiting!")
+        StatusLabel.Text = "✗ HUD Not Found"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        return false
+    end
+    
+    local Launch = HUD:WaitForChild("Launch", 10)
+    if not Launch then
+        warn("[Launch Exploit] Launch UI not found!")
+        StatusLabel.Text = "✗ Launch UI Not Found"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        return false
+    end
+    
+    local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+    local promptPlayerLaunch_upvr = Remotes:WaitForChild("promptPlayerLaunch", 10)
+    local getLaunchResponse = Remotes:WaitForChild("getLaunchResponse", 10)
+    
+    local Parent_upvr = Launch
+    local Bar = Parent_upvr:WaitForChild("Bar", 10)
+    local Tracker_upvr_2 = Bar:WaitForChild("Tracker", 10)
+    local Goal_upvr = Bar:WaitForChild("Goal", 10)
+    
+    local originalScript = Launch:WaitForChild("Client Launch Handler", 10)
+    local soundFolder = originalScript:WaitForChild("Sounds", 10)
+    
+    -- Замораживаем оригинальный скрипт
+    originalScript.Enabled = false
+    originalScript.Disabled = true
+    
+    local Tracker_upvr = createTrackerModule(Tracker_upvr_2, originalScript)
+    
+    -- Переменные состояния
+    local var8_upvw = false
+    local var9_upvw = false
+    local var10_upvw = nil
+    local var11_upvw = true
+    local time_upvr = os.time
+    local var12_result1_upvw = time_upvr()
+    
+    -- Load initial animations
+    local windAnim, releaseAnim = loadAnimations()
+    
+    -- Функция onLaunchRequest
+    local function onLaunchRequest(arg1)
+        if Parent_upvr.Visible then
+            return
+        end
+        
+        -- Reload animations if needed
+        if not windAnim or not releaseAnim then
+            windAnim, releaseAnim = loadAnimations()
+        end
+        
+        var11_upvw = not arg1
+        var10_upvw = nil
+        Tracker_upvr.Update()
+        Goal_upvr.BackgroundColor3 = Color3.fromRGB(
+            251 + math.random(1, 20) - 10,
+            212 + math.random(1, 20) - 10,
+            86 + math.random(1, 20) - 10
+        )
+        Parent_upvr.Visible = true
+        var8_upvw = false
+        var9_upvw = false
+        Goal_upvr.Position = UDim2.new(math.random(200, 800) * 0.001, 0, 0, 0)
+        Tracker_upvr_2.Position = UDim2.new(0, 0, 0, -8)
+        task.wait(0.1)
+        var9_upvw = true
+        Tracker_upvr:Play()
+        
+        -- Safely play animations
+        pcall(function()
+            if releaseAnim then releaseAnim:Stop() end
+            if windAnim then windAnim:Play() end
+        end)
+    end
+    
+    -- Функция finish с Auto Perfect
+    local function finish(arg1)
+        if time_upvr() - var12_result1_upvw < 0.2 then
+            return
+        end
+        
+        -- AUTO PERFECT ХУК
+        if Settings.AutoPerfect then
+            print("[Launch Exploit] Auto Perfect! Changing result from", arg1, "to 2")
+            arg1 = 2
+        end
+        
+        Parent_upvr:AddTag("Launching")
+        var10_upvw = arg1
+        
+        -- Get current character dynamically
+        local currentChar = getCurrentCharacter()
+        
+        if var11_upvw and currentChar then
+            promptPlayerLaunch_upvr:FireServer(arg1, currentChar)
+            var12_result1_upvw = time_upvr()
+        end
+        
+        Tracker_upvr:Cancel()
+        
+        -- Safely play animations
+        pcall(function()
+            if windAnim then windAnim:Stop() end
+            if releaseAnim then releaseAnim:Play() end
+        end)
+        
+        pcall(function()
+            local sound = soundFolder:FindFirstChild(tostring(arg1))
+            if sound then
+                sound:Play()
+            end
+        end)
+        
+        task.wait(0.2)
+        Parent_upvr.Visible = false
+        Parent_upvr:RemoveTag("Launching")
+    end
+    
+    -- Функция onClick
+    local function onClick(arg1, arg2)
+        if not Parent_upvr.Visible or var8_upvw or not var9_upvw then
+            return
+        elseif arg1.UserInputType == Enum.UserInputType.MouseButton1 or 
+               arg1.KeyCode == Enum.KeyCode.ButtonR2 or 
+               arg1.UserInputType == Enum.UserInputType.Touch then
+            
+            Tracker_upvr:Pause()
+            var8_upvw = true
+            local absolute = math.abs(Tracker_upvr_2.Position.X.Scale - Goal_upvr.Position.X.Scale)
+            
+            if absolute < 0.025 then
+                finish(2)
+                return
+            end
+            if absolute < 0.1 then
+                finish(1)
+                return
+            end
+            finish(0)
+        end
+    end
+    
+    -- Функция waitForLaunch
+    local function waitForLaunch()
+        onLaunchRequest(true)
+        while not var10_upvw do
+            task.wait()
+        end
+        return var10_upvw
+    end
+    
+    -- Подключаем события и сохраняем соединения
+    table.insert(exploitState.connections, promptPlayerLaunch_upvr.OnClientEvent:Connect(onLaunchRequest))
+    
+    -- КРИТИЧЕСКИ ВАЖНО: Переподключаем getLaunchResponse.OnClientInvoke
+    getLaunchResponse.OnClientInvoke = waitForLaunch
+    
+    table.insert(exploitState.connections, UserInputService.InputBegan:Connect(onClick))
+    
+    table.insert(exploitState.connections, Tracker_upvr.Completed:Connect(function(arg1)
+        if not var8_upvw and arg1 == Enum.PlaybackState.Completed then
+            finish(3)
+        end
+    end))
+    
+    exploitState.initialized = true
+    exploitState.reinitCount = exploitState.reinitCount + 1
+    
+    StatusLabel.Text = "✓ Exploit Active & Ready"
+    StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    ReinitLabel.Text = string.format("Reinits: %d", exploitState.reinitCount)
+    
+    print("[Launch Exploit] Initialized successfully! (Total inits: " .. exploitState.reinitCount .. ")")
+    return true
+end
+
+-- МОНИТОРИНГ И АВТОРЕИНИЦИАЛИЗАЦИЯ
+task.spawn(function()
+    while Settings.Active do
+        task.wait(2)
+        
+        -- Проверяем, нужна ли реинициализация
+        local needsReinit = false
+        
+        pcall(function()
+            local HUD = LocalPlayer.PlayerGui:FindFirstChild("HUD")
+            if not HUD then
+                needsReinit = true
+                return
+            end
+            
+            local Launch = HUD:FindFirstChild("Launch")
+            if not Launch then
+                needsReinit = true
+                return
+            end
+            
+            -- Проверяем, что UI элементы существуют
+            local Bar = Launch:FindFirstChild("Bar")
+            if not Bar or not Bar:FindFirstChild("Tracker") or not Bar:FindFirstChild("Goal") then
+                needsReinit = true
+                return
+            end
+            
+            -- Проверяем RemoteFunction
+            local Remotes = ReplicatedStorage:FindFirstChild("Remotes")
+            if Remotes then
+                local getLaunchResponse = Remotes:FindFirstChild("getLaunchResponse")
+                if getLaunchResponse and not getLaunchResponse.OnClientInvoke then
+                    needsReinit = true
+                    return
+                end
+            end
+        end)
+        
+        if needsReinit and exploitState.initialized then
+            warn("[Launch Exploit] Detected state change, triggering auto-reinit...")
+            StatusLabel.Text = "🔄 Auto-reinitializing..."
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+            
+            task.wait(0.5)
+            local success = pcall(function()
+                initializeExploit(true)
+            end)
+            
+            if not success then
+                warn("[Launch Exploit] Auto-reinit failed, will retry...")
+            end
+        end
+    end
+end)
+
+-- УЛУЧШЕННАЯ РЕИНИЦИАЛИЗАЦИЯ ПРИ РЕСПАВНЕ
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    print("[Launch Exploit] Character respawning, preparing reinit...")
+    
+    -- Wait for character to be fully loaded
+    local success = pcall(function()
+        newChar:WaitForChild("HumanoidRootPart", 10)
+        newChar:WaitForChild("Humanoid", 10)
+    end)
+    
+    if not success then
+        warn("[Launch Exploit] Character parts failed to load")
+        return
+    end
+    
+    -- Wait for HUD to respawn with retry logic
+    task.wait(1)
+    
+    local attempts = 0
+    local hudReady = false
+    
+    repeat
+        task.wait(0.5)
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if playerGui then
+            local hud = playerGui:FindFirstChild("HUD")
+            if hud and hud:FindFirstChild("Launch") then
+                hudReady = true
+            end
+        end
+        attempts = attempts + 1
+    until hudReady or attempts > 10
+    
+    if not hudReady then
+        warn("[Launch Exploit] HUD did not respawn in time")
+        StatusLabel.Text = "✗ HUD Not Ready"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 150, 100)
+        
+        -- Schedule a delayed retry
+        task.delay(3, function()
+            if Settings.Active then
+                print("[Launch Exploit] Retrying init after HUD timeout...")
+                pcall(function() initializeExploit(true) end)
+            end
+        end)
+        return
+    end
+    
+    print("[Launch Exploit] Character and HUD ready, reinitializing...")
+    task.wait(0.5)
+    
+    local success2, err = pcall(function()
+        initializeExploit(true)
+    end)
+    
+    if not success2 then
+        warn("[Launch Exploit] Respawn reinit failed:", err)
+        StatusLabel.Text = "✗ Reinit Failed"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+end)
+
+-- Открытие GUI
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightBracket then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+-- ПЕРВИЧНЫЙ ЗАПУСК
+task.spawn(function()
+    task.wait(1)
+    local success, err = pcall(function()
+        initializeExploit(false)
+    end)
+    if not success then
+        warn("[Launch Exploit] Initial load error:", err)
+        StatusLabel.Text = "✗ Error: " .. tostring(err)
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+end)
+
+-- Функция для полного отключения эксплойта (можно вызвать извне)
+getgenv().LaunchExploit.Disable = function()
+    print("[Launch Exploit] Disabling exploit...")
+    Settings.Active = false
+    disconnectAll()
+    exploitState.initialized = false
+    StatusLabel.Text = "✗ Exploit Disabled"
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+end
+
+-- Функция для включения эксплойта (можно вызвать извне)
+getgenv().LaunchExploit.Enable = function()
+    print("[Launch Exploit] Enabling exploit...")
+    Settings.Active = true
+    initializeExploit(true)
+end
+
+print("=" .. string.rep("=", 50))
+print("[Launch Exploit v10 - RESPAWN-PROOF] Loaded!")
+print("[Launch Exploit] Mobile: Tap 🚀 | Desktop: INSERT or ]")
+print("[Launch Exploit] Auto Perfect: Always get result 2!")
+print("[Launch Exploit] Auto-reinit: Enabled for tournaments")
+print("[Launch Exploit] Respawn Protection: ACTIVE")
+print("[Launch Exploit] Commands:")
+print("  - getgenv().LaunchExploit.Disable() - Disable exploit")
+print("  - getgenv().LaunchExploit.Enable() - Enable exploit")
+print("  - getgenv().LaunchExploit.Settings.AutoPerfect = true/false")
+print("=" .. string.rep("=", 50))
