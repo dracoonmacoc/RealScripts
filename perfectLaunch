@@ -1,5 +1,6 @@
 -- Launch Handler Exploit Script v10 (RESPAWN-PROOF Edition)
 -- Fixed character respawn issues with dynamic reference management
+-- FIXED: Strength text update error resolved
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,7 +26,7 @@ getgenv().LaunchExploit.State = getgenv().LaunchExploit.State or {
     reinitCount = 0,
     connections = {},
     lastInitTime = 0,
-    currentAnimations = {} -- Store animation tracks here
+    currentAnimations = {}
 }
 
 -- Сокращенные ссылки
@@ -267,7 +268,7 @@ task.spawn(function()
 end)
 
 -- ЗАМЕНА оригинального Tracker модуля
-local function createTrackerModule(trackerUI, parentScript)
+local function createTrackerModule(trackerUI, launchFrame)
     local module = {}
     
     local BindableEvent = Instance.new("BindableEvent")
@@ -293,8 +294,12 @@ local function createTrackerModule(trackerUI, parentScript)
             local floored = math.floor(strength / TrainingConfig.Strength.PerHealth)
             duration = math.clamp(0.5 + floored * 0.0015 - 0.0015, 0, 0.7)
             
-            if parentScript and parentScript.Parent and parentScript.Parent:FindFirstChild("Strength") then
-                parentScript.Parent.Strength.Text = string.format("Launch Mastery: %d", floored)
+            -- FIXED: Use launchFrame instead of parentScript.Parent
+            if launchFrame and launchFrame:FindFirstChild("Strength") then
+                local strengthElement = launchFrame.Strength
+                if strengthElement:IsA("TextLabel") or strengthElement:IsA("TextButton") then
+                    strengthElement.Text = string.format("Launch Mastery: %d", floored)
+                end
             end
         end)
         
@@ -427,7 +432,7 @@ local function initializeExploit(isReinit)
     local char = getCurrentCharacter()
     if not char then
         char = LocalPlayer.CharacterAdded:Wait()
-        task.wait(0.5) -- Let character fully load
+        task.wait(0.5)
     end
     
     -- Wait for essential character parts
@@ -479,7 +484,8 @@ local function initializeExploit(isReinit)
     originalScript.Enabled = false
     originalScript.Disabled = true
     
-    local Tracker_upvr = createTrackerModule(Tracker_upvr_2, originalScript)
+    -- FIXED: Pass Launch frame instead of script
+    local Tracker_upvr = createTrackerModule(Tracker_upvr_2, Launch)
     
     -- Переменные состояния
     local var8_upvw = false
