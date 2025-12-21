@@ -4,7 +4,7 @@
     Format: ["KeyName"] = "your_key_value_here"
 ]]
 local PERMANENT_KEYS = {
-    ["Key1"] = "",
+    ["Key1"] = "TomasMan",
     ["Key2"] = "",
     ["Key3"] = "",
     ["Key4"] = "",
